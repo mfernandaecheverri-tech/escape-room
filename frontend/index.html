@@ -27,6 +27,7 @@
   <header>
     <div>USUARIO: <span id="lbl-user" style="color:#eccc68;">-</span></div>
     <div>SALA: <span id="lbl-codigo" style="color:#2ed573;">------</span></div>
+    <div>TIEMPO: <span id="lbl-tiempo" style="color:#eccc68;">--:--</span></div>
     <div>ROL: <span id="lbl-rol" style="color:#70a1ff;">NINGUNO</span></div>
   </header>
 
@@ -63,7 +64,13 @@
       <p style="font-size:8px; color:#ff6b81;" id="wait-min-msg">Esperando jugadores...</p>
       <h4>JUGADORES EN SALA:</h4>
       <ul id="lista-jugadores" style="list-style:none; margin:10px 0; font-size:10px; color:#70a1ff;"></ul>
+      <div style="border:2px dashed #4a4a68; padding:10px; margin:8px 0; font-size:8px; line-height:15px; max-width:640px;">
+        <div style="color:#eccc68; margin-bottom:6px;">TU MISIÓN</div>
+        <div id="wait-mision" style="color:#fff;"></div>
+        <div style="color:#70a1ff; margin-top:8px;">CONTROLES: FLECHAS O WASD = MOVER &nbsp; E = INTERACTUAR &nbsp; L = LINTERNA</div>
+      </div>
       <button id="btn-iniciar-juego" class="btn-pixel green" onclick="solicitarInicioJuego()">¡INICIAR JUEGO!</button>
+      <p id="wait-host-msg" style="font-size:8px; color:#ffa502; display:none;">Esperando a que el anfitrión inicie el juego...</p>
     </div>
 
     <!-- PANTALLA 4: GAMEPLAY CANVAS -->
@@ -74,7 +81,8 @@
     <!-- PANTALLA 5: FIN DEL JUEGO -->
     <div id="screen-end" class="screen">
       <h2 id="end-title" style="font-size:16px; margin-bottom:15px;">¡JUEGO TERMINADO!</h2>
-      <p id="end-msg" style="font-size:10px;"></p>
+      <p id="end-msg" style="font-size:10px; margin-bottom:20px;"></p>
+      <button class="btn-pixel green" onclick="location.reload()">VOLVER AL INICIO</button>
     </div>
 
   </div>
@@ -266,6 +274,9 @@
   }
 
   function cargarInventarioRol(nombreRol) {
+    document.getElementById('wait-mision').innerText = (nombreRol === 'Hacker')
+      ? 'Eres el HACKER. La puerta del laboratorio está sellada con un código. Explora el cuarto, busca qué te ayuda a ver lo que está oculto y ábrela. Tu compañero depende de ti.'
+      : 'Eres el CIENTÍFICO. El laboratorio está infectado. Analiza las muestras de la mesa y encuentra la cura correcta antes de que se acabe el tiempo.';
     if (nombreRol === 'Hacker') {
       document.getElementById('slot-1').innerText = '💻';
       document.getElementById('slot-2').innerText = '-'; // la linterna se RECOGE en el juego, no viene equipada
@@ -277,8 +288,17 @@
     }
   }
 
+  function esAnfitrion() {
+    return !!(salaActual && usuarioActual && salaActual.anfitrion_id === usuarioActual.id);
+  }
+
   function iniciarSondeoJugadores(minJugadores) {
     if (loopInterval) clearInterval(loopInterval);
+    const btn = document.getElementById('btn-iniciar-juego');
+    const hostMsg = document.getElementById('wait-host-msg');
+    btn.style.display = esAnfitrion() ? 'inline-block' : 'none';
+    hostMsg.style.display = esAnfitrion() ? 'none' : 'block';
+
     loopInterval = setInterval(async () => {
       try {
         const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/jugadores`);
@@ -287,14 +307,23 @@
         const lista = document.getElementById('lista-jugadores');
         lista.innerHTML = jugadores.map(j => `<li>👾 ${j.username} - Rol: ${j.nombre_rol || 'Asignado'}</li>`).join('');
 
+        const completo = jugadores.length >= minJugadores;
+        btn.disabled = !completo;
+        btn.style.opacity = completo ? '1' : '0.5';
+
         const msgMin = document.getElementById('wait-min-msg');
-        if (jugadores.length >= minJugadores) {
-          msgMin.innerText = "¡Mínimo alcanzado! Todo listo para jugar.";
+        if (completo) {
+          msgMin.innerText = "¡Equipo completo! Todo listo para jugar.";
           msgMin.style.color = "#2ed573";
         } else {
           msgMin.innerText = `Faltan jugadores. Mínimo: ${minJugadores} (Conectados: ${jugadores.length})`;
           msgMin.style.color = "#ff6b81";
         }
+
+        // ¿El anfitrión ya inició? Entonces todos entramos al mismo tiempo.
+        const resEstado = await fetch(`${API_URL}/api/salas/${salaActual.id}/estado`);
+        const est = await resEstado.json();
+        if (est.estado === 'EN_PROGRESO') entrarAlJuego();
       } catch (e) {}
     }, 2000);
   }
@@ -303,10 +332,7 @@
     try {
       const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/iniciar`, { method: 'PUT' });
       if (res.ok) {
-        clearInterval(loopInterval);
-        cambiarPantalla('screen-game');
-        await cargarMiEtapaYAcertijo();
-        iniciarJuegoCanvas();
+        entrarAlJuego();
       } else {
         const data = await res.json();
         alert(data.error);
@@ -314,6 +340,17 @@
     } catch (e) {
       alert("Error al iniciar juego: " + e.message);
     }
+  }
+
+  let juegoIniciado = false;
+  async function entrarAlJuego() {
+    if (juegoIniciado) return;
+    juegoIniciado = true;
+    clearInterval(loopInterval);
+    cambiarPantalla('screen-game');
+    await cargarMiEtapaYAcertijo();
+    iniciarJuegoCanvas();
+    iniciarMonitorSala();
   }
 
   // --- 4. ACERTIJOS REALES (desde la BD, no quemados en el JS) ---
@@ -338,6 +375,65 @@
     }
   }
 
+  // --- CRONÓMETRO Y ESTADO DE LA SALA ---
+  let juegoTerminado = false;
+  let finJuegoMs = null;
+  let monitorInterval = null;
+  let relojInterval = null;
+
+  function formatearTiempo(seg) {
+    const s = Math.max(0, Math.floor(seg));
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  // Cada 2 s le pregunta al servidor cómo va la sala (tiempo restante, resuelta o fallida).
+  // Así el primero en terminar también se entera cuando su compañero termina.
+  function iniciarMonitorSala() {
+    const consultar = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/estado`);
+        const data = await res.json();
+        if (data.segundos_restantes !== null && data.segundos_restantes !== undefined) {
+          finJuegoMs = Date.now() + Number(data.segundos_restantes) * 1000;
+        }
+        if (data.estado === 'RESUELTO') mostrarFinExito();
+        else if (data.estado === 'FALLIDO') mostrarFinFallo();
+      } catch (e) {}
+    };
+    consultar();
+    monitorInterval = setInterval(consultar, 2000);
+    relojInterval = setInterval(() => {
+      const el = document.getElementById('lbl-tiempo');
+      if (finJuegoMs === null) { el.innerText = '--:--'; return; }
+      const restante = (finJuegoMs - Date.now()) / 1000;
+      el.innerText = formatearTiempo(restante);
+      el.style.color = restante <= 60 ? '#ff4757' : '#eccc68';
+    }, 500);
+  }
+
+  function detenerJuego() {
+    juegoTerminado = true;
+    clearInterval(monitorInterval);
+    clearInterval(relojInterval);
+    clearInterval(loopInterval);
+  }
+
+  function mostrarFinExito() {
+    if (juegoTerminado) return;
+    detenerJuego();
+    document.getElementById('end-title').innerText = '¡ESCAPARON TODOS! 🎉';
+    document.getElementById('end-msg').innerText = `Sala ${salaActual.codigo_acceso} — estado final: RESUELTO`;
+    cambiarPantalla('screen-end');
+  }
+
+  function mostrarFinFallo() {
+    if (juegoTerminado) return;
+    detenerJuego();
+    document.getElementById('end-title').innerText = '¡SE ACABÓ EL TIEMPO! 💀';
+    document.getElementById('end-msg').innerText = `Sala ${salaActual.codigo_acceso} — estado final: FALLIDO`;
+    cambiarPantalla('screen-end');
+  }
+
   async function verificarAcertijoActual(respuestaUsuario) {
     if (!acertijoActual || miPuzzleResuelto) return;
     try {
@@ -347,16 +443,15 @@
         body: JSON.stringify({ respuesta: respuestaUsuario, jugador_sala_id: rolActual.jugador_sala_id })
       });
       const data = await res.json();
+      if (data.error) { log('⚠️ ' + data.error); return; }
 
       if (data.correcto) {
         miPuzzleResuelto = true;
         log(`🎉 ¡Resolviste tu parte! Puntos: ${data.puntos}`);
         if (data.salaCompleta) {
-          document.getElementById('end-title').innerText = '¡ESCAPARON TODOS! 🎉';
-          document.getElementById('end-msg').innerText = `Sala ${salaActual.codigo_acceso} — estado final: RESUELTO`;
-          cambiarPantalla('screen-end');
+          mostrarFinExito();
         } else {
-          alert('¡Resolviste tu parte! Esperando a que tu compañero(a) también lo logre...');
+          log('⏳ Esperando a que tu compañero(a) también resuelva su parte...');
         }
       } else {
         log('❌ Intento fallido de código.');
@@ -497,6 +592,7 @@
     }
 
     function gameLoop() {
+      if (juegoTerminado) return;
       if (keys['ArrowLeft'] || keys['a'] || keys['A']) player.x -= player.speed;
       if (keys['ArrowRight'] || keys['d'] || keys['D']) player.x += player.speed;
       if (keys['ArrowUp'] || keys['w'] || keys['W']) player.y -= player.speed;
@@ -557,6 +653,12 @@
         ctx.beginPath();
         ctx.arc(player.x + player.w / 2, player.y + player.h / 2, 90, 0, Math.PI * 2);
         ctx.fill();
+      }
+
+      if (miPuzzleResuelto) {
+        ctx.fillStyle = '#2ed573';
+        ctx.font = '10px "Press Start 2P"';
+        ctx.fillText('TU PARTE ESTA LISTA - ESPERANDO A TU COMPANERO...', 120, 30);
       }
 
       requestAnimationFrame(gameLoop);

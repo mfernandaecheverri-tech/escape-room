@@ -110,8 +110,14 @@ app.post('/api/acertijos/:id/verificar', async (req, res) => {
     let salaCompleta = false;
 
     if (jugador_sala_id) {
-      const [jsRows] = await pool.query('SELECT sala_id FROM jugadores_sala WHERE id = ?', [jugador_sala_id]);
+      const [jsRows] = await pool.query(
+        'SELECT js.sala_id, s.estado FROM jugadores_sala js JOIN salas s ON js.sala_id = s.id WHERE js.id = ?',
+        [jugador_sala_id]
+      );
       const salaId = jsRows[0]?.sala_id;
+      if (jsRows[0]?.estado === 'FALLIDO') {
+        return res.status(400).json({ error: 'El tiempo se agotó: la sala ya terminó.' });
+      }
 
       if (salaId) {
         await pool.query(
@@ -243,13 +249,57 @@ app.get('/api/salas/:id/jugadores', async (req, res) => {
   }
 });
 
+app.get('/api/salas/:id/estado', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.id, s.estado, j.tiempo_limite_minutos,
+              CASE WHEN s.fecha_inicio IS NULL THEN NULL
+                   ELSE TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(s.fecha_inicio, INTERVAL j.tiempo_limite_minutos MINUTE))
+              END AS segundos_restantes
+       FROM salas s JOIN juegos j ON s.juego_id = j.id
+       WHERE s.id = ?`,
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Sala no encontrada' });
+    const sala = rows[0];
+
+    // Si se acabó el tiempo y la sala seguía en progreso, se marca FALLIDO.
+    if (sala.estado === 'EN_PROGRESO' && sala.segundos_restantes !== null && Number(sala.segundos_restantes) <= 0) {
+      await pool.query(
+        'UPDATE salas SET estado = ?, fecha_fin = NOW() WHERE id = ? AND estado = ?',
+        ['FALLIDO', sala.id, 'EN_PROGRESO']
+      );
+      sala.estado = 'FALLIDO';
+    }
+    res.json(sala);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.put('/api/salas/:id/iniciar', async (req, res) => {
   try {
-    await pool.query(
-      'UPDATE salas SET estado = ?, fecha_inicio = NOW() WHERE id = ?',
-      ['EN_PROGRESO', req.params.id]
+    const [salas] = await pool.query(
+      'SELECT s.estado, j.min_jugadores FROM salas s JOIN juegos j ON s.juego_id = j.id WHERE s.id = ?',
+      [req.params.id]
     );
-    res.json({ status: 'ok' });
+    if (salas.length === 0) return res.status(404).json({ error: 'Sala no encontrada' });
+
+    // Si ya estaba iniciada (o terminada) no se toca: así el cronómetro no se reinicia.
+    if (salas[0].estado !== 'EN_ESPERA') return res.json({ status: 'ok', estado: salas[0].estado });
+
+    const [[{ total }]] = await pool.query(
+      'SELECT COUNT(*) AS total FROM jugadores_sala WHERE sala_id = ?', [req.params.id]
+    );
+    if (total < salas[0].min_jugadores) {
+      return res.status(400).json({ error: `Faltan jugadores (mínimo ${salas[0].min_jugadores}).` });
+    }
+
+    await pool.query(
+      'UPDATE salas SET estado = ?, fecha_inicio = NOW() WHERE id = ? AND estado = ?',
+      ['EN_PROGRESO', req.params.id, 'EN_ESPERA']
+    );
+    res.json({ status: 'ok', estado: 'EN_PROGRESO' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
