@@ -9,16 +9,34 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Press Start 2P', cursive; image-rendering: pixelated; }
     body { background: #0d0d15; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
     #game-container { width: 960px; height: 620px; background: #1a1a24; border: 6px solid #4a4a68; display: flex; flex-direction: column; position: relative; }
-    header { background: #2b2b3a; padding: 12px; display: flex; justify-content: space-between; border-bottom: 4px solid #4a4a68; font-size: 10px; }
+    header { background: #2b2b3a; padding: 12px; display: flex; justify-content: space-between; border-bottom: 4px solid #4a4a68; font-size: 9px; }
     .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
     .screen.active { display: flex; }
     .btn-pixel { background: #ff6b81; color: #fff; border: none; padding: 10px 16px; margin: 8px; font-size: 10px; cursor: pointer; box-shadow: 0 4px 0 #b33939; }
     .btn-pixel.green { background: #2ed573; box-shadow: 0 4px 0 #20bf6b; }
+    .btn-pixel:disabled { cursor: not-allowed; }
     input, select { background: #000; border: 2px solid #4a4a68; color: #2ed573; padding: 10px; font-size: 10px; margin: 8px; outline: none; text-align: center; width: 320px; }
     footer { height: 120px; background: #2b2b3a; border-top: 4px solid #4a4a68; display: flex; padding: 8px; gap: 8px; }
     .log-panel { flex: 2; background: #000; border: 2px solid #4a4a68; padding: 6px; font-size: 8px; color: #ffa502; overflow-y: auto; }
     .inv-panel { flex: 1; background: #000; border: 2px solid #4a4a68; padding: 6px; font-size: 8px; color: #70a1ff; }
-    .inv-slot { display: inline-block; width: 40px; height: 40px; border: 2px dashed #4a4a68; margin: 4px; vertical-align: top; text-align: center; line-height: 36px; font-size: 14px; }
+    .inv-slot { display: inline-block; width: 40px; height: 40px; border: 2px dashed #4a4a68; margin: 4px; vertical-align: top; text-align: center; line-height: 36px; font-size: 18px; }
+    .inv-slot.lleno { border-style: solid; border-color: #eccc68; }
+
+    /* Panel flotante (pistas, libreta, puerta) */
+    #panel { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 760px; max-height: 420px;
+             overflow-y: auto; background: #0b0b12; border: 4px solid #eccc68; padding: 16px; z-index: 20; text-align: left;
+             font-size: 9px; line-height: 17px; box-shadow: 0 0 0 4px #000; }
+    #panel h3 { color: #eccc68; font-size: 10px; margin: 6px 0 8px 0; }
+    #panel .txt { color: #fff; margin-bottom: 12px; }
+    #panel .sub { color: #a4b0be; margin-bottom: 10px; }
+    #panel .ayuda { color: #70a1ff; margin-top: 10px; font-size: 8px; }
+    #panel .ok { color: #2ed573; margin: 8px 0; }
+    #panel .err { color: #ff4757; margin: 8px 0; }
+    #panel .pista { border-top: 2px dashed #4a4a68; padding: 8px 0; color: #70a1ff; }
+    #panel .fila { display: flex; align-items: center; gap: 10px; margin: 2px 0; }
+    #panel .fila label { width: 330px; color: #fff; }
+    #panel .fila input { flex: 1; margin: 4px 0; width: auto; text-align: left; }
+    #panel input.respuesta { width: 340px; text-align: left; margin-left: 0; }
   </style>
 </head>
 <body>
@@ -27,6 +45,7 @@
   <header>
     <div>USUARIO: <span id="lbl-user" style="color:#eccc68;">-</span></div>
     <div>SALA: <span id="lbl-codigo" style="color:#2ed573;">------</span></div>
+    <div>ETAPA: <span id="lbl-etapa" style="color:#70a1ff;">-</span></div>
     <div>TIEMPO: <span id="lbl-tiempo" style="color:#eccc68;">--:--</span></div>
     <div>ROL: <span id="lbl-rol" style="color:#70a1ff;">NINGUNO</span></div>
   </header>
@@ -43,7 +62,7 @@
       </div>
     </div>
 
-    <!-- PANTALLA 2: LOBBY & DESPLEGABLE DE JUEGOS -->
+    <!-- PANTALLA 2: LOBBY -->
     <div id="screen-lobby-select" class="screen">
       <h3 style="margin-bottom:10px;">SELECCIONA UN JUEGO</h3>
       <select id="select-juegos"><option value="">Cargando juegos de BD...</option></select>
@@ -60,231 +79,219 @@
     <!-- PANTALLA 3: SALA DE ESPERA -->
     <div id="screen-waiting-room" class="screen">
       <h3 style="color:#eccc68;">SALA DE ESPERA</h3>
-      <p style="font-size:10px; margin:10px 0;">Código: <span id="wait-codigo" style="color:#2ed573; font-size:14px;"></span></p>
+      <p style="font-size:10px; margin:8px 0;">Código: <span id="wait-codigo" style="color:#2ed573; font-size:14px;"></span></p>
       <p style="font-size:8px; color:#ff6b81;" id="wait-min-msg">Esperando jugadores...</p>
-      <h4>JUGADORES EN SALA:</h4>
-      <ul id="lista-jugadores" style="list-style:none; margin:10px 0; font-size:10px; color:#70a1ff;"></ul>
-      <div style="border:2px dashed #4a4a68; padding:10px; margin:8px 0; font-size:8px; line-height:15px; max-width:640px;">
+      <h4 style="margin-top:6px;">JUGADORES EN SALA:</h4>
+      <ul id="lista-jugadores" style="list-style:none; margin:8px 0; font-size:9px; line-height:16px; color:#70a1ff;"></ul>
+      <div style="border:2px dashed #4a4a68; padding:10px; margin:6px 0; font-size:8px; line-height:15px; max-width:700px;">
         <div style="color:#eccc68; margin-bottom:6px;">TU MISIÓN</div>
         <div id="wait-mision" style="color:#fff;"></div>
-        <div style="color:#70a1ff; margin-top:8px;">CONTROLES: FLECHAS O WASD = MOVER &nbsp; E = INTERACTUAR &nbsp; L = LINTERNA</div>
+        <div style="color:#70a1ff; margin-top:8px;">FLECHAS O A/D = MOVER &nbsp; ESPACIO O W = SALTAR &nbsp; E = INTERACTUAR &nbsp; Q = LIBRETA</div>
       </div>
       <button id="btn-iniciar-juego" class="btn-pixel green" onclick="solicitarInicioJuego()">¡INICIAR JUEGO!</button>
       <p id="wait-host-msg" style="font-size:8px; color:#ffa502; display:none;">Esperando a que el anfitrión inicie el juego...</p>
     </div>
 
-    <!-- PANTALLA 4: GAMEPLAY CANVAS -->
+    <!-- PANTALLA 4: JUEGO -->
     <div id="screen-game" class="screen" style="padding:0;">
       <canvas id="gameCanvas" width="948" height="380" style="background:#000;"></canvas>
     </div>
 
-    <!-- PANTALLA 5: FIN DEL JUEGO -->
+    <!-- PANTALLA 5: FIN -->
     <div id="screen-end" class="screen">
       <h2 id="end-title" style="font-size:16px; margin-bottom:15px;">¡JUEGO TERMINADO!</h2>
       <p id="end-msg" style="font-size:10px; margin-bottom:20px;"></p>
       <button class="btn-pixel green" onclick="location.reload()">VOLVER AL INICIO</button>
     </div>
 
+    <!-- Panel flotante -->
+    <div id="panel"></div>
+
   </div>
 
   <footer>
     <div class="log-panel" id="log-box">> Conectado al sistema de Escape Room...</div>
     <div class="inv-panel">
-      <div>INVENTARIO:</div>
-      <div id="inventory-slots" style="margin-top:5px;">
-        <div class="inv-slot" id="slot-1">-</div>
-        <div class="inv-slot" id="slot-2">-</div>
-      </div>
+      <div>PISTAS: <span id="lbl-pistas">0/0</span> (Q = LIBRETA)</div>
+      <div id="inventory-slots" style="margin-top:5px;"></div>
     </div>
   </footer>
 </div>
 
 <script src="config.js"></script>
 <script>
+  // ============================================================ ESTADO GENERAL
   let usuarioActual = null;
   let salaActual = null;
-  let rolActual = null;
-  let etapaActual = null;
-  let acertijoActual = null;
+  let rolActual = null;       // { id, nombre_rol, descripcion, jugador_sala_id }
   let loopInterval = null;
+  let juegoIniciado = false;
+  let juegoActivo = false;    // true mientras se está viendo la pantalla del juego
+  let juegoTerminado = false;
+  let finJuegoMs = null;
+  let monitorInterval = null;
+  let relojInterval = null;
 
-  // ------------------------------------------------------------------
-  // DISEÑO DEL NIVEL. El backend NUNCA envía respuesta_codigo al cliente
-  // (por seguridad), así que lo que el jugador "descubre" explorando el
-  // cuarto se define aquí, y TIENE que coincidir con lo que guardaste en
-  // la columna respuesta_codigo de la tabla `acertijos` para cada rol.
-  // Si cambias la respuesta en la BD, cambia también estas constantes.
-  // ------------------------------------------------------------------
-  const PAINTING_ANSWER = '1984';    // debe == respuesta_codigo del acertijo del Hacker
-  const PAINTING_CORRECT_INDEX = 2;  // cuál de los 4 cuadros (0 a 3) esconde el código
-  const VIAL_ANSWER = '1984';        // debe == respuesta_codigo del acertijo del Científico
-  const VIAL_CORRECT_INDEX = 1;      // cuál de los 4 viales (0 a 3) es el correcto
-  const VIAL_PISTAS_FALSAS = [
-    'Muestra A: cepa inestable, no sirve.',
-    'Muestra B: contaminada, descartar.',
-    'Muestra C: concentración incorrecta.',
-    'Muestra D: caducada hace semanas.'
-  ];
-
-  const player = { x: 80, y: 258, w: 28, h: 42, speed: 4 };
   const keys = {};
-  let animFrame = 0;
-  let animTimer = 0;
-  let hasFlashlight = false;
-  let linternaEncendida = false;
-  let miPuzzleResuelto = false;
+  let panelAbierto = false;
+  let panelConFormulario = false;
 
-  window.addEventListener('keydown', e => keys[e.key] = true);
-  window.addEventListener('keyup', e => keys[e.key] = false);
+  // ============================================================ DATOS DE PRESENTACIÓN
+  const ICONOS = {
+    placa:'🏷️', monitor:'🖥️', cartel:'📌', frasco:'🧪', tabla:'📊', nota:'📝', circuito:'🔌', generador:'⚡', libro:'📘',
+    ficha:'📋', receta:'📜', ampolla:'💉', estanteria:'📚', bitacora:'📒', alarma:'🚨', servidor:'🗄️', probeta:'⚗️',
+    protocolo:'📑', pizarra:'🗒️', engranaje:'⚙️', informe:'📄', vial:'🧫', analisis:'🔬', camara:'📹', reloj:'🕰️',
+    terminal:'💻', tanque:'🛢️', manometro:'⏲️', valvula:'🔧', cuaderno:'📓', diario:'📔', alfabeto:'🔤', caja:'📦',
+    puerta:'🚪', cuadro:'🖼️', planta:'🌿', lampara:'💡', calavera:'💀', radiacion:'☢️', tuberia:'🔩'
+  };
+  const icono = k => ICONOS[k] || '❔';
+  const COLOR_ROL = { 1:'#70a1ff', 2:'#2ed573', 3:'#ffa502', 4:'#ff6b81', 5:'#a29bfe', 6:'#eccc68' };
+  const THEMES = {
+    1: { top:'#1e272e', bottom:'#2f3640', plat:'#57606f', edge:'#a4b0be', puerta:'#d2dae2' },
+    2: { top:'#1a1a2e', bottom:'#2d2b55', plat:'#4b4b7a', edge:'#9b8cff', puerta:'#b8a9ff' },
+    3: { top:'#2a1515', bottom:'#4a2222', plat:'#6b3b3b', edge:'#ff9f7f', puerta:'#ffb199' }
+  };
 
+  function esc(t) {
+    return String(t ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  }
   function log(msg) {
     const box = document.getElementById('log-box');
-    box.innerHTML += `<br>> ${msg}`;
+    box.innerHTML += `<br>> ${esc(msg)}`;
     box.scrollTop = box.scrollHeight;
   }
-
   function cambiarPantalla(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
   }
 
-  // --- 1. CARGAR JUEGOS DESDE BD ---
+  // ============================================================ TECLADO
+  function enCampo() {
+    const t = document.activeElement && document.activeElement.tagName;
+    return t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT';
+  }
+  window.addEventListener('keydown', e => {
+    if (enCampo()) { if (e.key === 'Escape' && panelAbierto) cerrarPanel(); return; }
+    if (juegoActivo && [' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+    keys[e.key] = true;
+    if (!e.repeat) teclaPulsada(e.key);
+  });
+  window.addEventListener('keyup', e => { keys[e.key] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+  function teclaPulsada(k) {
+    if (!juegoActivo || juegoTerminado) return;
+    if (panelAbierto) {
+      if (k === 'Escape') cerrarPanel();
+      else if (!panelConFormulario && ['e', 'E', 'Enter', 'q', 'Q'].includes(k)) cerrarPanel();
+      return;
+    }
+    if (k === 'e' || k === 'E') interactuar();
+    else if (k === 'q' || k === 'Q') abrirLibreta();
+  }
+
+  // ============================================================ 1. JUEGOS
   async function cargarJuegos() {
     try {
-      const res = await fetch(API_URL + '/api/juegos');
+      const res = await fetch(`${API_URL}/api/juegos`);
       const juegos = await res.json();
       const select = document.getElementById('select-juegos');
-      if (!select) return;
-
       if (!juegos || juegos.length === 0) {
         select.innerHTML = '<option value="">No hay juegos disponibles</option>';
         return;
       }
-
       select.innerHTML = juegos.map(j =>
-        `<option value="${j.id}">${j.titulo} (Min: ${j.min_jugadores} - Max: ${j.max_jugadores})</option>`
+        `<option value="${j.id}">${esc(j.titulo)} (Min: ${j.min_jugadores} - Max: ${j.max_jugadores})</option>`
       ).join('');
     } catch (e) {
-      log("Error al cargar juegos: " + e.message);
+      log('Error al cargar juegos: ' + e.message);
     }
   }
 
-  // --- 2. AUTENTICACIÓN ---
+  // ============================================================ 2. AUTENTICACIÓN
   async function iniciarSesion() {
-    const username = document.getElementById('auth-username').value;
+    const username = document.getElementById('auth-username').value.trim();
     if (!username) return alert('Ingresa un usuario');
     try {
-      const res = await fetch(API_URL + '/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username })
       });
       const data = await res.json();
       if (res.ok) {
         usuarioActual = data.usuario;
         document.getElementById('lbl-user').innerText = usuarioActual.username;
-        log(`Sesión iniciada como: ${usuarioActual.username} (ID: ${usuarioActual.id})`);
+        log(`Sesión iniciada como: ${usuarioActual.username}`);
         await cargarJuegos();
         cambiarPantalla('screen-lobby-select');
       } else {
         alert(data.error || 'Error al iniciar sesión');
       }
     } catch (e) {
-      log("Error de conexión: " + e.message);
-      alert("Error al conectar con la API: " + e.message);
+      log('Error de conexión: ' + e.message);
+      alert('Error al conectar con la API: ' + e.message);
     }
   }
 
   async function registrarUsuario() {
-    const username = document.getElementById('auth-username').value;
+    const username = document.getElementById('auth-username').value.trim();
     if (!username) return alert('Ingresa un usuario');
     try {
-      const res = await fetch(API_URL + '/api/auth/registro', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username })
+      const res = await fetch(`${API_URL}/api/auth/registro`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username })
       });
       if (res.ok) { alert('Usuario registrado con éxito. Haz clic en ENTRAR.'); }
       else { const data = await res.json(); alert(data.error); }
-    } catch (e) { alert("Error al registrar: " + e.message); }
+    } catch (e) { alert('Error al registrar: ' + e.message); }
   }
 
-  // --- 3. CREAR Y UNIRSE A SALA ---
+  // ============================================================ 3. SALAS
   async function crearSalaLobby() {
     const juego_id = document.getElementById('select-juegos').value;
-
-    if (!usuarioActual || !usuarioActual.id) {
-      alert('Error: No se detectó el ID del usuario. Vuelve a iniciar sesión.');
-      return;
-    }
-    if (!juego_id) {
-      alert('Selecciona un juego válido de la lista');
-      return;
-    }
-
+    if (!usuarioActual || !usuarioActual.id) return alert('Vuelve a iniciar sesión.');
+    if (!juego_id) return alert('Selecciona un juego válido de la lista');
     try {
-      const res = await fetch(API_URL + '/api/salas/crear', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${API_URL}/api/salas/crear`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ juego_id: parseInt(juego_id), anfitrion_id: usuarioActual.id })
       });
       const data = await res.json();
-
       if (res.ok) {
         document.getElementById('join-codigo').value = data.codigo_acceso;
-        log(`¡Sala creada! Código: ${data.codigo_acceso}. Entrando...`);
+        log(`¡Sala creada! Código: ${data.codigo_acceso}`);
         unirseASalaLobby();
       } else {
-        log(`Error al crear sala: ${data.error}`);
-        alert("Error del servidor: " + data.error);
+        alert('Error del servidor: ' + data.error);
       }
     } catch (e) {
-      log("Error de red al crear sala: " + e.message);
+      log('Error de red al crear sala: ' + e.message);
     }
   }
 
   async function unirseASalaLobby() {
-    const codigo_acceso = document.getElementById('join-codigo').value;
+    const codigo_acceso = document.getElementById('join-codigo').value.trim().toUpperCase();
     if (!codigo_acceso) return alert('Ingresa el código de sala');
-
     try {
-      const res = await fetch(API_URL + '/api/salas/unirse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`${API_URL}/api/salas/unirse`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ codigo_acceso, usuario_id: usuarioActual.id })
       });
       const data = await res.json();
+      if (!res.ok) return alert(data.error);
 
-      if (res.ok) {
-        salaActual = data.sala;
-        rolActual = data.rol; // incluye { id, nombre_rol, jugador_sala_id }
-        document.getElementById('lbl-codigo').innerText = salaActual.codigo_acceso;
-        document.getElementById('lbl-rol').innerText = rolActual.nombre_rol;
-        document.getElementById('wait-codigo').innerText = salaActual.codigo_acceso;
-
-        cargarInventarioRol(rolActual.nombre_rol);
-        cambiarPantalla('screen-waiting-room');
-        iniciarSondeoJugadores(data.min_jugadores);
-      } else {
-        alert(data.error);
-      }
+      salaActual = data.sala;
+      rolActual = data.rol;
+      document.getElementById('lbl-codigo').innerText = salaActual.codigo_acceso;
+      document.getElementById('lbl-rol').innerText = rolActual.nombre_rol.toUpperCase();
+      document.getElementById('wait-codigo').innerText = salaActual.codigo_acceso;
+      document.getElementById('wait-mision').innerText =
+        `Eres el ${rolActual.nombre_rol.toUpperCase()}. ${rolActual.descripcion || ''} ` +
+        'En cada etapa tendrás un acertijo propio: explora el cuarto, busca pistas y razona. ' +
+        'Solo tú ves tus pistas, así que tu equipo te necesita. Para abrir cada puerta hay que reunir las respuestas de TODOS.';
+      log(`Rol asignado: ${rolActual.nombre_rol}`);
+      cambiarPantalla('screen-waiting-room');
+      iniciarSondeoJugadores(data.min_jugadores);
     } catch (e) {
-      log("Error al unirse a la sala: " + e.message);
-    }
-  }
-
-  function cargarInventarioRol(nombreRol) {
-    document.getElementById('wait-mision').innerText = (nombreRol === 'Hacker')
-      ? 'Eres el HACKER. La puerta del laboratorio está sellada con un código. Explora el cuarto, busca qué te ayuda a ver lo que está oculto y ábrela. Tu compañero depende de ti.'
-      : 'Eres el CIENTÍFICO. El laboratorio está infectado. Analiza las muestras de la mesa y encuentra la cura correcta antes de que se acabe el tiempo.';
-    if (nombreRol === 'Hacker') {
-      document.getElementById('slot-1').innerText = '💻';
-      document.getElementById('slot-2').innerText = '-'; // la linterna se RECOGE en el juego, no viene equipada
-      log('Rol asignado: Hacker. Busca la linterna en el cuarto antes de revisar los cuadros.');
-    } else {
-      document.getElementById('slot-1').innerText = '🧪';
-      document.getElementById('slot-2').innerText = '📄';
-      log('Rol asignado: Científico. Analiza los viales de la mesa para encontrar la cura.');
+      log('Error al unirse a la sala: ' + e.message);
     }
   }
 
@@ -299,95 +306,248 @@
     btn.style.display = esAnfitrion() ? 'inline-block' : 'none';
     hostMsg.style.display = esAnfitrion() ? 'none' : 'block';
 
-    loopInterval = setInterval(async () => {
+    const consultar = async () => {
       try {
         const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/jugadores`);
         const jugadores = await res.json();
-
-        const lista = document.getElementById('lista-jugadores');
-        lista.innerHTML = jugadores.map(j => `<li>👾 ${j.username} - Rol: ${j.nombre_rol || 'Asignado'}</li>`).join('');
+        document.getElementById('lista-jugadores').innerHTML =
+          jugadores.map(j => `<li>👾 ${esc(j.username)} - ${esc((j.nombre_rol || '').toUpperCase())}</li>`).join('');
 
         const completo = jugadores.length >= minJugadores;
         btn.disabled = !completo;
         btn.style.opacity = completo ? '1' : '0.5';
-
         const msgMin = document.getElementById('wait-min-msg');
         if (completo) {
-          msgMin.innerText = "¡Equipo completo! Todo listo para jugar.";
-          msgMin.style.color = "#2ed573";
+          msgMin.innerText = `Equipo listo (${jugadores.length} jugadores). Pueden entrar más hasta llenar la sala.`;
+          msgMin.style.color = '#2ed573';
         } else {
           msgMin.innerText = `Faltan jugadores. Mínimo: ${minJugadores} (Conectados: ${jugadores.length})`;
-          msgMin.style.color = "#ff6b81";
+          msgMin.style.color = '#ff6b81';
         }
 
-        // ¿El anfitrión ya inició? Entonces todos entramos al mismo tiempo.
         const resEstado = await fetch(`${API_URL}/api/salas/${salaActual.id}/estado`);
         const est = await resEstado.json();
         if (est.estado === 'EN_PROGRESO') entrarAlJuego();
       } catch (e) {}
-    }, 2000);
+    };
+    consultar();
+    loopInterval = setInterval(consultar, 2000);
   }
 
   async function solicitarInicioJuego() {
     try {
       const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/iniciar`, { method: 'PUT' });
-      if (res.ok) {
-        entrarAlJuego();
-      } else {
-        const data = await res.json();
-        alert(data.error);
-      }
+      if (res.ok) entrarAlJuego();
+      else { const data = await res.json(); alert(data.error); }
     } catch (e) {
-      alert("Error al iniciar juego: " + e.message);
+      alert('Error al iniciar juego: ' + e.message);
     }
   }
 
-  let juegoIniciado = false;
   async function entrarAlJuego() {
     if (juegoIniciado) return;
     juegoIniciado = true;
     clearInterval(loopInterval);
     cambiarPantalla('screen-game');
-    await cargarMiEtapaYAcertijo();
+    juegoActivo = true;
+    await cargarEscena();
     iniciarJuegoCanvas();
     iniciarMonitorSala();
+    log('Controles: flechas/AD mover · ESPACIO o W saltar · E interactuar · Q libreta');
   }
 
-  // --- 4. ACERTIJOS REALES (desde la BD, no quemados en el JS) ---
-  async function cargarMiEtapaYAcertijo() {
-    try {
-      const resEtapas = await fetch(`${API_URL}/api/juegos/${salaActual.juego_id}/etapas`);
-      const etapas = await resEtapas.json();
+  // ============================================================ 4. ESCENA DE LA ETAPA
+  const WORLD = { w: 948, h: 380, floorY: 340 };
+  const GRAV = 0.55, JUMP_V = -11.2, SPEED = 3.3;
+  const player = { x: 30, y: 298, w: 28, h: 42, vx: 0, vy: 0, onGround: false, facing: 1 };
 
-      for (const etapa of etapas) {
-        const resAc = await fetch(`${API_URL}/api/etapas/${etapa.id}/acertijos?rol_juego_id=${rolActual.id}`);
-        const acertijos = await resAc.json();
-        if (acertijos.length > 0) {
-          etapaActual = etapa;
-          acertijoActual = acertijos[0];
-          log(`Tu etapa: "${etapa.titulo_etapa}". Usa flechas o WASD para moverte y 'E'/'L' para interactuar.`);
-          return;
-        }
-      }
-      log('No se encontró un acertijo para tu rol en este juego.');
+  let escena = null;          // { etapa, total_etapas, objetos, acertijo }
+  let plataformas = [], pistas = [], decor = [], puerta = null, interactuables = [];
+  let notas = [];             // pistas ya examinadas en esta etapa
+  let miRespuesta = null;
+  let banner = null;
+  let cargandoEscena = false;
+
+  function resetJugador() {
+    player.x = 30; player.y = WORLD.floorY - player.h; player.vx = 0; player.vy = 0; player.onGround = true; player.facing = 1;
+  }
+
+  async function cargarEscena(esTransicion) {
+    if (cargandoEscena) return;
+    cargandoEscena = true;
+    try {
+      const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/escena?jugador_sala_id=${rolActual.jugador_sala_id}`);
+      const data = await res.json();
+      if (!res.ok) { log('⚠️ ' + (data.error || 'No se pudo cargar la etapa')); return; }
+
+      escena = data;
+      miRespuesta = null;
+      const con = o => ({ ...o, w: o.ancho, h: o.alto });
+      plataformas = data.objetos.filter(o => o.tipo === 'PLATAFORMA').map(con);
+      pistas = data.objetos.filter(o => o.tipo === 'PISTA').map(con);
+      decor = data.objetos.filter(o => o.tipo === 'DECORADO').map(con);
+      puerta = data.objetos.filter(o => o.tipo === 'PUERTA').map(con)[0] || null;
+      interactuables = [...pistas, ...(puerta ? [puerta] : [])];
+      notas = [];
+      renderPistas();
+      resetJugador();
+      if (panelAbierto) cerrarPanel();
+
+      const n = data.etapa.numero_etapa;
+      document.getElementById('lbl-etapa').innerText = `${n}/${data.total_etapas}`;
+      banner = { texto: `ETAPA ${n}: ${data.etapa.titulo_etapa.toUpperCase()}`, hasta: performance.now() + 3500 };
+      log(`${esTransicion ? '¡PUERTA ABIERTA! ' : ''}ETAPA ${n}/${data.total_etapas}: ${data.etapa.titulo_etapa}`);
     } catch (e) {
-      log('Error al cargar tu etapa: ' + e.message);
+      log('Error al cargar la etapa: ' + e.message);
+    } finally {
+      cargandoEscena = false;
     }
   }
 
-  // --- CRONÓMETRO Y ESTADO DE LA SALA ---
-  let juegoTerminado = false;
-  let finJuegoMs = null;
-  let monitorInterval = null;
-  let relojInterval = null;
+  function renderPistas() {
+    const total = pistas.length;
+    document.getElementById('lbl-pistas').innerText = `${notas.length}/${total}`;
+    let html = '';
+    for (let i = 0; i < total; i++) {
+      const n = notas[i];
+      html += `<div class="inv-slot ${n ? 'lleno' : ''}" title="${n ? esc(n.nombre) : ''}">${n ? icono(n.icono) : '-'}</div>`;
+    }
+    document.getElementById('inventory-slots').innerHTML = html;
+  }
 
+  // ============================================================ 5. PANELES
+  function abrirPanel(html, conFormulario) {
+    const p = document.getElementById('panel');
+    p.innerHTML = html;
+    p.style.display = 'block';
+    panelAbierto = true;
+    panelConFormulario = !!conFormulario;
+    for (const k in keys) keys[k] = false;
+  }
+  function cerrarPanel() {
+    document.getElementById('panel').style.display = 'none';
+    panelAbierto = false;
+    panelConFormulario = false;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+
+  function examinar(o) {
+    if (!notas.find(n => n.id === o.id)) {
+      notas.push({ id: o.id, nombre: o.nombre, icono: o.icono, texto: o.texto });
+      renderPistas();
+      log(`Nueva pista: ${o.nombre}`);
+    }
+    abrirPanel(
+      `<h3>${icono(o.icono)} ${esc(o.nombre)}</h3><div class="txt">${esc(o.texto)}</div>` +
+      `<div class="ayuda">[E] o [ESC] para cerrar · [Q] abre tu libreta con todas las pistas</div>`, false);
+  }
+
+  function abrirLibreta(mensaje) {
+    if (!escena) return;
+    const a = escena.acertijo;
+    let html = `<h3>📖 LIBRETA - ETAPA ${escena.etapa.numero_etapa}: ${esc(escena.etapa.titulo_etapa)}</h3>`;
+    html += `<div class="sub">${esc(escena.etapa.descripcion)}</div>`;
+    html += '<h3>TU ACERTIJO</h3>';
+    if (!a) {
+      html += '<div class="txt">No tienes acertijo en esta etapa. Ayuda a tu equipo.</div>';
+    } else {
+      html += `<div class="txt">${esc(a.pista_texto)}</div>`;
+      if (a.resuelto) {
+        html += `<div class="ok">✅ RESUELTO${miRespuesta ? '. Tu respuesta: ' + esc(miRespuesta) : ''}. Díctasela a tu equipo para abrir la puerta.</div>`;
+      } else {
+        html += `<input id="in-resp" class="respuesta" type="text" autocomplete="off" placeholder="Tu respuesta" onkeydown="if(event.key==='Enter')enviarRespuesta()">` +
+                `<button class="btn-pixel green" onclick="enviarRespuesta()">ENVIAR</button>`;
+      }
+    }
+    html += `<div id="panel-msg" class="${mensaje && mensaje.ok ? 'ok' : 'err'}">${mensaje ? esc(mensaje.texto) : ''}</div>`;
+    html += `<h3>PISTAS ENCONTRADAS (${notas.length}/${pistas.length})</h3>`;
+    if (notas.length === 0) html += '<div class="sub">Aún no has examinado nada. Explora el cuarto: busca los objetos con "!". Algunos están en lo alto.</div>';
+    notas.forEach(n => { html += `<div class="pista">${icono(n.icono)} <b>${esc(n.nombre)}:</b> ${esc(n.texto)}</div>`; });
+    html += '<div class="ayuda">[ESC] para cerrar</div>';
+    abrirPanel(html, true);
+    const inp = document.getElementById('in-resp');
+    if (inp) inp.focus();
+  }
+
+  async function enviarRespuesta() {
+    const inp = document.getElementById('in-resp');
+    if (!inp) return;
+    const valor = inp.value.trim();
+    if (!valor) return;
+    try {
+      const res = await fetch(`${API_URL}/api/acertijos/${escena.acertijo.id}/verificar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ respuesta: valor, jugador_sala_id: rolActual.jugador_sala_id })
+      });
+      const data = await res.json();
+      if (!res.ok) return abrirLibreta({ ok: false, texto: data.error || 'Error' });
+      if (data.correcto) {
+        escena.acertijo.resuelto = true;
+        miRespuesta = valor;
+        log(`¡Acertijo resuelto! +${data.puntos} puntos`);
+        abrirLibreta({ ok: true, texto: '¡Correcto!' });
+      } else {
+        log('Respuesta incorrecta');
+        abrirLibreta({ ok: false, texto: '❌ Respuesta incorrecta. Revisa las pistas y razona de nuevo.' });
+      }
+    } catch (e) {
+      log('Error al verificar: ' + e.message);
+    }
+  }
+
+  async function abrirPanelPuerta() {
+    let equipo = [];
+    try {
+      const r = await fetch(`${API_URL}/api/salas/${salaActual.id}/equipo`);
+      equipo = await r.json();
+    } catch (e) { log('Error al cargar el equipo: ' + e.message); }
+
+    let html = '<h3>🚪 PUERTA SELLADA</h3>';
+    html += '<div class="txt">Para abrirla, escriban la respuesta de CADA especialista del equipo. ' +
+            'Cada uno solo conoce la suya: pídansela por voz. ✅ = ya resolvió su acertijo.</div>';
+    equipo.forEach(m => {
+      const mia = m.rol_juego_id === rolActual.id && miRespuesta ? miRespuesta : '';
+      html += `<div class="fila"><label>${m.resuelto ? '✅' : '⏳'} ${esc(m.nombre_rol.toUpperCase())} (${esc(m.username)})</label>` +
+              `<input class="in-puerta" data-rol="${m.rol_juego_id}" type="text" autocomplete="off" value="${esc(mia)}"></div>`;
+    });
+    html += '<button class="btn-pixel green" onclick="enviarPuerta()">ABRIR PUERTA</button>';
+    html += '<div id="panel-msg" class="err"></div><div class="ayuda">[ESC] para cerrar</div>';
+    abrirPanel(html, true);
+    const primero = Array.from(document.querySelectorAll('.in-puerta')).find(i => !i.value);
+    if (primero) primero.focus();
+  }
+
+  async function enviarPuerta() {
+    const respuestas = {};
+    document.querySelectorAll('.in-puerta').forEach(i => { respuestas[i.dataset.rol] = i.value.trim(); });
+    const msg = document.getElementById('panel-msg');
+    try {
+      const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/puerta`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ respuestas, jugador_sala_id: rolActual.jugador_sala_id })
+      });
+      const data = await res.json();
+      if (!res.ok) { msg.className = 'err'; msg.innerText = data.error || 'Error'; return; }
+      if (!data.correcto) {
+        msg.className = 'err';
+        msg.innerText = '❌ La puerta no se abre: alguna respuesta es incorrecta o falta. Revisen con su equipo.';
+        log('La puerta rechazó el código');
+        return;
+      }
+      if (data.salaCompleta) { cerrarPanel(); mostrarFinExito(); return; }
+      cerrarPanel();
+      await cargarEscena(true);
+    } catch (e) {
+      msg.className = 'err'; msg.innerText = 'Error de red: ' + e.message;
+    }
+  }
+
+  // ============================================================ 6. CRONÓMETRO Y ESTADO DE LA SALA
   function formatearTiempo(seg) {
     const s = Math.max(0, Math.floor(seg));
     return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
   }
 
-  // Cada 2 s le pregunta al servidor cómo va la sala (tiempo restante, resuelta o fallida).
-  // Así el primero en terminar también se entera cuando su compañero termina.
   function iniciarMonitorSala() {
     const consultar = async () => {
       try {
@@ -396,8 +556,9 @@
         if (data.segundos_restantes !== null && data.segundos_restantes !== undefined) {
           finJuegoMs = Date.now() + Number(data.segundos_restantes) * 1000;
         }
-        if (data.estado === 'RESUELTO') mostrarFinExito();
-        else if (data.estado === 'FALLIDO') mostrarFinFallo();
+        if (data.estado === 'RESUELTO') return mostrarFinExito();
+        if (data.estado === 'FALLIDO') return mostrarFinFallo();
+        if (escena && data.etapa_actual && data.etapa_actual !== escena.etapa.numero_etapa) await cargarEscena(true);
       } catch (e) {}
     };
     consultar();
@@ -413,11 +574,12 @@
 
   function detenerJuego() {
     juegoTerminado = true;
+    juegoActivo = false;
     clearInterval(monitorInterval);
     clearInterval(relojInterval);
     clearInterval(loopInterval);
+    cerrarPanel();
   }
-
   function mostrarFinExito() {
     if (juegoTerminado) return;
     detenerJuego();
@@ -425,7 +587,6 @@
     document.getElementById('end-msg').innerText = `Sala ${salaActual.codigo_acceso} — estado final: RESUELTO`;
     cambiarPantalla('screen-end');
   }
-
   function mostrarFinFallo() {
     if (juegoTerminado) return;
     detenerJuego();
@@ -434,237 +595,170 @@
     cambiarPantalla('screen-end');
   }
 
-  async function verificarAcertijoActual(respuestaUsuario) {
-    if (!acertijoActual || miPuzzleResuelto) return;
-    try {
-      const res = await fetch(`${API_URL}/api/acertijos/${acertijoActual.id}/verificar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ respuesta: respuestaUsuario, jugador_sala_id: rolActual.jugador_sala_id })
-      });
-      const data = await res.json();
-      if (data.error) { log('⚠️ ' + data.error); return; }
+  // ============================================================ 7. MOTOR DEL JUEGO (plataformas)
+  function actualizar(dt) {
+    let dir = 0;
+    if (!panelAbierto) {
+      if (keys['ArrowLeft'] || keys['a'] || keys['A']) dir -= 1;
+      if (keys['ArrowRight'] || keys['d'] || keys['D']) dir += 1;
+    }
+    player.vx = dir * SPEED;
+    if (dir !== 0) player.facing = dir;
 
-      if (data.correcto) {
-        miPuzzleResuelto = true;
-        log(`🎉 ¡Resolviste tu parte! Puntos: ${data.puntos}`);
-        if (data.salaCompleta) {
-          mostrarFinExito();
-        } else {
-          log('⏳ Esperando a que tu compañero(a) también resuelva su parte...');
+    const quiereSaltar = !panelAbierto && (keys[' '] || keys['ArrowUp'] || keys['w'] || keys['W']);
+    if (quiereSaltar && player.onGround) { player.vy = JUMP_V; player.onGround = false; }
+
+    const fondoAntes = player.y + player.h;
+    player.vy = Math.min(player.vy + GRAV * dt, 14);
+    player.x += player.vx * dt;
+    player.y += player.vy * dt;
+    player.x = Math.max(0, Math.min(WORLD.w - player.w, player.x));
+    if (player.y < 0) { player.y = 0; player.vy = 0; }
+
+    // Las plataformas son "de un solo sentido": se atraviesan subiendo y se pisan al caer.
+    player.onGround = false;
+    if (player.vy >= 0) {
+      const fondoAhora = player.y + player.h;
+      for (const p of plataformas) {
+        if (player.x + player.w > p.x && player.x < p.x + p.w && fondoAntes <= p.y + 0.5 && fondoAhora >= p.y) {
+          player.y = p.y - player.h; player.vy = 0; player.onGround = true; break;
         }
-      } else {
-        log('❌ Intento fallido de código.');
-        alert('Código incorrecto.');
       }
-    } catch (e) {
-      log('Error al verificar el acertijo: ' + e.message);
     }
   }
 
-  // --- 5. GAMEPLAY EN CANVAS ---
-  function drawPlayer(ctx, x, y, colorCuerpo) {
-    const moviendose = keys['ArrowLeft'] || keys['a'] || keys['A'] || keys['ArrowRight'] || keys['d'] || keys['D'];
-    animTimer++;
-    if (moviendose && animTimer % 8 === 0) animFrame = 1 - animFrame;
+  function objetoCercano() {
+    const cx = player.x + player.w / 2, cy = player.y + player.h / 2;
+    let mejor = null, mejorD = Infinity;
+    for (const o of interactuables) {
+      const dx = Math.abs(cx - (o.x + o.w / 2)), dy = Math.abs(cy - (o.y + o.h / 2));
+      if (dx <= 38 + o.w / 2 && dy <= 42) {
+        const d = dx + dy;
+        if (d < mejorD) { mejorD = d; mejor = o; }
+      }
+    }
+    return mejor;
+  }
 
-    // Cabeza
-    ctx.fillStyle = '#f7c9a3';
-    ctx.fillRect(x + 6, y, 16, 14);
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x + 10, y + 5, 3, 3);
-    ctx.fillRect(x + 16, y + 5, 3, 3);
-    // Cuerpo
-    ctx.fillStyle = colorCuerpo;
-    ctx.fillRect(x + 4, y + 14, 20, 16);
-    // Brazos
-    ctx.fillRect(x, y + 16, 4, 12);
-    ctx.fillRect(x + 24, y + 16, 4, 12);
-    // Piernas (con animación de caminar)
+  function interactuar() {
+    const o = objetoCercano();
+    if (!o) return;
+    if (o.tipo === 'PISTA') examinar(o);
+    else if (o.tipo === 'PUERTA') abrirPanelPuerta();
+  }
+
+  // ------------------------------------------------------------ dibujo
+  function dibujarEmoji(ctx, simbolo, cx, cy, tam) {
+    ctx.font = `${tam}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(simbolo, cx, cy);
+  }
+
+  function dibujarTexto(ctx, texto, x, y, color, tam, alinear) {
+    ctx.font = `${tam}px "Press Start 2P", monospace`;
+    ctx.textAlign = alinear || 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = color;
+    ctx.fillText(texto, x, y);
+  }
+
+  function dibujarJugador(ctx, ahora) {
+    const moviendo = !panelAbierto && Math.abs(player.vx) > 0.1 && player.onGround;
+    const paso = moviendo ? (Math.floor(ahora / 110) % 2) : 0;
+    const enAire = !player.onGround;
+    ctx.save();
+    ctx.translate(player.x + player.w / 2, player.y);
+    ctx.scale(player.facing, 1);
+    const ox = -player.w / 2;
+    const color = COLOR_ROL[rolActual ? rolActual.id : 1] || '#70a1ff';
+    // cabeza y pelo
+    ctx.fillStyle = '#f7c9a3'; ctx.fillRect(ox + 6, 0, 16, 14);
+    ctx.fillStyle = '#4b3b2a'; ctx.fillRect(ox + 6, 0, 16, 4);
+    ctx.fillStyle = '#000'; ctx.fillRect(ox + 13, 6, 3, 3); ctx.fillRect(ox + 18, 6, 3, 3);
+    // cuerpo y brazos
+    ctx.fillStyle = color; ctx.fillRect(ox + 4, 14, 20, 16);
+    ctx.fillRect(ox, enAire ? 12 : 16, 4, 12); ctx.fillRect(ox + 24, enAire ? 12 : 16, 4, 12);
+    // piernas
     ctx.fillStyle = '#2f3640';
-    if (animFrame === 0) {
-      ctx.fillRect(x + 6, y + 30, 6, 12);
-      ctx.fillRect(x + 16, y + 30, 6, 12);
-    } else {
-      ctx.fillRect(x + 4, y + 30, 6, 12);
-      ctx.fillRect(x + 18, y + 30, 6, 12);
+    if (enAire || paso === 1) { ctx.fillRect(ox + 4, 30, 6, 12); ctx.fillRect(ox + 18, 30, 6, 12); }
+    else { ctx.fillRect(ox + 8, 30, 6, 12); ctx.fillRect(ox + 14, 30, 6, 12); }
+    ctx.restore();
+  }
+
+  function dibujar(ctx, ahora) {
+    const th = THEMES[escena ? escena.etapa.numero_etapa : 1] || THEMES[1];
+    const g = ctx.createLinearGradient(0, 0, 0, WORLD.h);
+    g.addColorStop(0, th.top); g.addColorStop(1, th.bottom);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+    ctx.fillStyle = 'rgba(255,255,255,0.035)';
+    for (let y = 40; y < WORLD.floorY; y += 40) ctx.fillRect(0, y, WORLD.w, 2);
+    if (!escena) return;
+
+    ctx.globalAlpha = 0.6;
+    decor.forEach(d => dibujarEmoji(ctx, icono(d.icono), d.x + d.w / 2, d.y + d.h / 2, 26));
+    ctx.globalAlpha = 1;
+
+    plataformas.forEach(p => {
+      ctx.fillStyle = th.plat; ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.fillStyle = th.edge; ctx.fillRect(p.x, p.y, p.w, 3);
+    });
+
+    pistas.forEach(o => {
+      const visto = notas.some(n => n.id === o.id);
+      dibujarEmoji(ctx, icono(o.icono), o.x + o.w / 2, o.y + o.h / 2, 26);
+      if (visto) dibujarTexto(ctx, '✓', o.x + o.w / 2, o.y - 3, '#2ed573', 10, 'center');
+      else dibujarTexto(ctx, '!', o.x + o.w / 2, o.y - 3 + Math.sin(ahora / 250) * 3, '#eccc68', 12, 'center');
+    });
+
+    if (puerta) {
+      ctx.fillStyle = th.puerta; ctx.fillRect(puerta.x - 4, puerta.y - 4, puerta.w + 8, puerta.h + 4);
+      ctx.fillStyle = '#000'; ctx.fillRect(puerta.x, puerta.y, puerta.w, puerta.h);
+      ctx.fillStyle = '#ff4757'; ctx.fillRect(puerta.x + puerta.w - 12, puerta.y + puerta.h / 2, 6, 6);
+      dibujarTexto(ctx, 'SALIDA', puerta.x + puerta.w / 2, puerta.y - 10, '#ff4757', 8, 'center');
+    }
+
+    dibujarJugador(ctx, ahora);
+
+    // aviso de interacción
+    const cerca = !panelAbierto ? objetoCercano() : null;
+    if (cerca) {
+      const txt = cerca.tipo === 'PUERTA' ? 'E: ABRIR PUERTA' : 'E: EXAMINAR ' + cerca.nombre.toUpperCase();
+      const ancho = txt.length * 9 + 12;
+      let bx = cerca.x + cerca.w / 2 - ancho / 2;
+      bx = Math.max(4, Math.min(WORLD.w - ancho - 4, bx));
+      const by = Math.max(24, cerca.y - 40);
+      ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(bx, by - 14, ancho, 20);
+      dibujarTexto(ctx, txt, bx + ancho / 2, by, '#eccc68', 8, 'center');
+    }
+
+    // HUD
+    dibujarTexto(ctx, `ETAPA ${escena.etapa.numero_etapa}/${escena.total_etapas}: ${escena.etapa.titulo_etapa}`, 10, 16, '#fff', 8, 'left');
+    const resuelto = escena.acertijo && escena.acertijo.resuelto;
+    dibujarTexto(ctx, resuelto ? 'TU ACERTIJO: RESUELTO (A LA ESPERA DEL EQUIPO)' : 'TU ACERTIJO: PENDIENTE', 10, 30, resuelto ? '#2ed573' : '#ffa502', 8, 'left');
+    dibujarTexto(ctx, 'Q = LIBRETA', WORLD.w - 10, 16, '#70a1ff', 8, 'right');
+
+    if (banner && ahora < banner.hasta) {
+      ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(WORLD.w / 2 - 330, 120, 660, 70);
+      dibujarTexto(ctx, banner.texto, WORLD.w / 2, 162, '#eccc68', 14, 'center');
     }
   }
 
+  let bucleIniciado = false;
   function iniciarJuegoCanvas() {
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const esHacker = rolActual.nombre_rol === 'Hacker';
-
-    // Límites del cuarto (el jugador ya no camina solo por una línea de piso:
-    // puede moverse por todo este rectángulo, incluido acercarse a la pared).
-    const ROOM = { minX: 20, maxX: canvas.width - player.w - 20, minY: 40, maxY: canvas.height - player.h - 30 };
-
-    // Cada objeto tiene un "punto de interacción" (ix, iy): ahí es literalmente
-    // donde el jugador debe pararse (cerca, en X y en Y) para poder usarlo.
-    const paintings = [140, 320, 500, 680].map((x, i) => ({
-      x, y: 40, w: 60, h: 80, id: i, ix: x + 30, iy: 130 // justo bajo el marco
-    }));
-    const flashlightSpot = { x: 30, y: 320, w: 30, h: 24, ix: 45, iy: 320 };
-    const vials = [180, 360, 540, 720].map((x, i) => ({
-      x, y: 190, w: 24, h: 54, id: i, curado: false, ix: x + 12, iy: 250 // al pie de la mesa
-    }));
-    const door = { x: 760, y: 160, w: 80, h: 140, ix: 800, iy: 260 };
-
-    function distanciaA(punto) {
-      const cx = player.x + player.w / 2;
-      const cy = player.y + player.h / 2;
-      const dx = cx - punto.ix;
-      const dy = cy - punto.iy;
-      return Math.sqrt(dx * dx + dy * dy);
-    }
-
-    function cerca(punto, rango = 34) {
-      return distanciaA(punto) < rango;
-    }
-
-    function manejarInteraccionHacker() {
-      // 1) Recoger linterna
-      if (!hasFlashlight && cerca(flashlightSpot)) {
-        ctx.fillStyle = '#eccc68';
-        ctx.font = '9px "Press Start 2P"';
-        ctx.fillText("PRESIONA 'E' PARA RECOGER LA LINTERNA", 240, 300);
-        if (keys['e'] || keys['E']) {
-          keys['e'] = false; keys['E'] = false;
-          hasFlashlight = true;
-          document.getElementById('slot-2').innerText = '🔦';
-          log('🔦 Recogiste la linterna. Acércate bien a un cuadro y presiona "L" para iluminarlo.');
-        }
-      }
-
-      // 2) Revisar cuadros (hay que estar literalmente frente a uno, no solo alineado en X)
-      const cuadroCercano = paintings.find(p => cerca(p));
-      if (cuadroCercano) {
-        ctx.fillStyle = '#eccc68';
-        ctx.font = '9px "Press Start 2P"';
-        ctx.fillText(hasFlashlight ? "PRESIONA 'L' PARA ILUMINAR" : "NECESITAS UNA LINTERNA", 300, 175);
-
-        if ((keys['l'] || keys['L']) && hasFlashlight) {
-          keys['l'] = false; keys['L'] = false;
-          linternaEncendida = true;
-          if (cuadroCercano.id === PAINTING_CORRECT_INDEX) {
-            ctx.fillStyle = '#2ed573';
-            ctx.font = '14px "Press Start 2P"';
-            ctx.fillText(PAINTING_ANSWER, cuadroCercano.x, cuadroCercano.y - 10);
-            log(`✨ ¡Encontraste algo detrás del cuadro! Código: ${PAINTING_ANSWER}`);
-          } else {
-            log('El cuadro está vacío por detrás. No hay nada.');
-          }
-        }
-      }
-
-      // 3) Puerta
-      if (cerca(door, 45)) {
-        ctx.fillStyle = '#eccc68';
-        ctx.font = '10px "Press Start 2P"';
-        ctx.fillText(miPuzzleResuelto ? "PUERTA ABIERTA ✅" : "PRESIONA 'E' PARA INGRESAR CÓDIGO", 220, 140);
-        if ((keys['e'] || keys['E']) && !miPuzzleResuelto) {
-          keys['e'] = false; keys['E'] = false;
-          const codigo = prompt('Ingresa el código que encontraste:');
-          if (codigo) verificarAcertijoActual(codigo);
-        }
-      }
-    }
-
-    function manejarInteraccionCientifico() {
-      const vialCercano = vials.find(v => cerca(v));
-      if (vialCercano && !vialCercano.curado) {
-        ctx.fillStyle = '#eccc68';
-        ctx.font = '9px "Press Start 2P"';
-        ctx.fillText("PRESIONA 'E' PARA ANALIZAR", 300, 175);
-
-        if (keys['e'] || keys['E']) {
-          keys['e'] = false; keys['E'] = false;
-          if (vialCercano.id === VIAL_CORRECT_INDEX) {
-            vialCercano.curado = true;
-            log('🧪 ¡Encontraste la cura correcta!');
-            verificarAcertijoActual(VIAL_ANSWER);
-          } else {
-            log(`🧪 ${VIAL_PISTAS_FALSAS[vialCercano.id] || 'No coincide.'}`);
-          }
-        }
-      }
-    }
-
-    function gameLoop() {
+    if (bucleIniciado) return;
+    bucleIniciado = true;
+    const ctx = document.getElementById('gameCanvas').getContext('2d');
+    let ultimo = performance.now();
+    function bucle(ahora) {
       if (juegoTerminado) return;
-      if (keys['ArrowLeft'] || keys['a'] || keys['A']) player.x -= player.speed;
-      if (keys['ArrowRight'] || keys['d'] || keys['D']) player.x += player.speed;
-      if (keys['ArrowUp'] || keys['w'] || keys['W']) player.y -= player.speed;
-      if (keys['ArrowDown'] || keys['s'] || keys['S']) player.y += player.speed;
-
-      if (player.x < ROOM.minX) player.x = ROOM.minX;
-      if (player.x > ROOM.maxX) player.x = ROOM.maxX;
-      if (player.y < ROOM.minY) player.y = ROOM.minY;
-      if (player.y > ROOM.maxY) player.y = ROOM.maxY;
-
-      // Fondo
-      ctx.fillStyle = '#1e272e';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      // Zona de piso (visual, ya no limita el movimiento)
-      ctx.fillStyle = '#485460';
-      ctx.fillRect(0, 300, canvas.width, 80);
-
-      if (esHacker) {
-        // Cuadros en la pared
-        paintings.forEach(p => {
-          ctx.fillStyle = '#c8a165';
-          ctx.fillRect(p.x - 4, p.y - 4, p.w + 8, p.h + 8);
-          ctx.fillStyle = '#34495e';
-          ctx.fillRect(p.x, p.y, p.w, p.h);
-        });
-        // Objeto linterna en el piso (si no se ha recogido)
-        if (!hasFlashlight) {
-          ctx.fillStyle = '#ffd32a';
-          ctx.fillRect(flashlightSpot.x, flashlightSpot.y, flashlightSpot.w, flashlightSpot.h);
-        }
-        // Puerta
-        ctx.fillStyle = miPuzzleResuelto ? '#2ed573' : '#d2dae2';
-        ctx.fillRect(door.x, door.y, door.w, door.h);
-        ctx.fillStyle = '#000';
-        ctx.fillRect(door.x + 10, door.y + 10, door.w - 20, door.h - 20);
-
-        manejarInteraccionHacker();
-      } else {
-        // Mesa de laboratorio
-        ctx.fillStyle = '#57606f';
-        ctx.fillRect(140, 250, 660, 20);
-        vials.forEach(v => {
-          ctx.fillStyle = v.curado ? '#2ed573' : '#ff6b81';
-          ctx.fillRect(v.x, v.y, v.w, v.h);
-          ctx.fillStyle = '#dfe4ea';
-          ctx.fillRect(v.x + 4, v.y - 6, v.w - 8, 8);
-        });
-
-        manejarInteraccionCientifico();
-      }
-
-      // Jugador (ahora se dibuja en su x,y libres, no en una línea fija)
-      drawPlayer(ctx, player.x, player.y, esHacker ? '#70a1ff' : '#2ed573');
-
-      // Aviso de linterna encendida
-      if (hasFlashlight && linternaEncendida) {
-        ctx.fillStyle = 'rgba(255, 211, 42, 0.15)';
-        ctx.beginPath();
-        ctx.arc(player.x + player.w / 2, player.y + player.h / 2, 90, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      if (miPuzzleResuelto) {
-        ctx.fillStyle = '#2ed573';
-        ctx.font = '10px "Press Start 2P"';
-        ctx.fillText('TU PARTE ESTA LISTA - ESPERANDO A TU COMPANERO...', 120, 30);
-      }
-
-      requestAnimationFrame(gameLoop);
+      const dt = Math.min((ahora - ultimo) / 16.667, 2.5);
+      ultimo = ahora;
+      actualizar(dt);
+      dibujar(ctx, ahora);
+      requestAnimationFrame(bucle);
     }
-
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(bucle);
   }
 </script>
 </body>
