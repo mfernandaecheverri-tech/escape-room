@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de administración - Escape Room</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0d0d15; color: #e8e8f0; font-family: 'Segoe UI', Roboto, Arial, sans-serif; font-size: 16px; min-height: 100vh; }
+    h1, h2, .px { font-family: 'Press Start 2P', cursive; }
+    header { background: #2b2b3a; border-bottom: 4px solid #4a4a68; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 14px; color: #eccc68; line-height: 22px; }
+    a { color: #70a1ff; }
+    button { font-family: inherit; font-size: 15px; cursor: pointer; border: none; border-radius: 4px; padding: 8px 14px; color: #fff; background: #4a4a68; }
+    button:hover { filter: brightness(1.15); }
+    button.verde { background: #20bf6b; } button.rojo { background: #d63031; } button.azul { background: #2e86de; }
+    input, select, textarea { font-family: inherit; font-size: 15px; background: #000; color: #2ed573; border: 2px solid #4a4a68; border-radius: 4px; padding: 8px 10px; width: 100%; }
+    textarea { min-height: 90px; resize: vertical; }
+    #login { max-width: 460px; margin: 90px auto; background: #1a1a24; border: 4px solid #4a4a68; padding: 28px; text-align: center; }
+    #login h2 { font-size: 13px; color: #ff4757; margin-bottom: 18px; line-height: 20px; }
+    #login input { margin: 10px 0; text-align: center; }
+    #app { display: none; display: none; }
+    #layout { display: flex; min-height: calc(100vh - 62px); }
+    nav { width: 230px; background: #14141d; border-right: 3px solid #4a4a68; padding: 14px; }
+    nav button { display: block; width: 100%; text-align: left; margin-bottom: 8px; background: #23232f; }
+    nav button.activa { background: #2e86de; }
+    main { flex: 1; padding: 20px 24px; overflow-x: auto; }
+    .barra { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+    .barra h2 { font-size: 13px; color: #eccc68; flex: 1; }
+    .barra input { width: 260px; }
+    table { width: 100%; border-collapse: collapse; background: #14141d; }
+    th { background: #2b2b3a; text-align: left; padding: 10px; font-size: 14px; color: #eccc68; position: sticky; top: 0; }
+    td { padding: 8px 10px; border-bottom: 1px solid #2b2b3a; vertical-align: top; font-size: 14px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+    tr:hover td { background: #1c1c28; }
+    td.acciones { white-space: nowrap; }
+    td.acciones button { padding: 5px 10px; font-size: 13px; margin-right: 4px; }
+    #modal-fondo { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 10; align-items: center; justify-content: center; }
+    #modal { background: #1a1a24; border: 4px solid #eccc68; width: 640px; max-width: 94vw; max-height: 90vh; overflow-y: auto; padding: 22px; }
+    #modal h2 { font-size: 12px; color: #eccc68; margin-bottom: 16px; line-height: 20px; }
+    .campo { margin-bottom: 12px; }
+    .campo label { display: block; margin-bottom: 4px; color: #a4b0be; font-size: 14px; }
+    .campo .chk { display: flex; align-items: center; gap: 8px; }
+    .campo .chk input { width: auto; }
+    .botones { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+    #error-modal { color: #ff6b6b; margin-top: 8px; min-height: 20px; }
+    #toast { position: fixed; bottom: 20px; right: 20px; background: #2b2b3a; border: 3px solid #4a4a68; padding: 12px 18px; display: none; z-index: 20; max-width: 420px; }
+    #toast.error { border-color: #ff4757; } #toast.ok { border-color: #2ed573; }
+    .vacio { padding: 30px; color: #a4b0be; text-align: center; }
+    .nota { color: #a4b0be; font-size: 14px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PANEL DE ADMINISTRACIÓN (CRUD)</h1>
+    <div><a href="index.html">← Volver al juego</a> &nbsp; <button id="btn-salir" class="rojo" style="display:none;" onclick="salir()">Cerrar sesión</button></div>
+  </header>
+
+  <div id="login">
+    <h2>CLAVE DE ADMINISTRADOR</h2>
+    <p class="nota">Es la variable <b>ADMIN_KEY</b> que configuraste en el servidor.</p>
+    <input type="password" id="clave" placeholder="Clave" onkeydown="if(event.key==='Enter')entrar()">
+    <button class="verde" onclick="entrar()">Entrar</button>
+    <p id="error-login" style="color:#ff6b6b; margin-top:12px;"></p>
+  </div>
+
+  <div id="app">
+    <div id="layout">
+      <nav id="menu"></nav>
+      <main>
+        <div class="barra">
+          <h2 id="titulo-tabla"></h2>
+          <input type="search" id="buscar" placeholder="Buscar en la tabla..." oninput="dibujarTabla()">
+          <button id="btn-nuevo" class="verde" onclick="abrirFormulario()">+ Nuevo</button>
+        </div>
+        <div id="contenido"></div>
+      </main>
+    </div>
+  </div>
+
+  <div id="modal-fondo"><div id="modal"></div></div>
+  <div id="toast"></div>
+
+<script src="config.js"></script>
+<script>
+  let clave = sessionStorage.getItem('adminKey') || '';
+  let meta = {};
+  let tablaActual = null;
+  let datos = {};          // caché: { tabla: [filas] }
+  let editandoId = null;
+
+  const api = async (metodo, ruta, cuerpo) => {
+    const res = await fetch(`${API_URL}/api/admin${ruta}`, {
+      method: metodo,
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': clave },
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined
+    });
+    let json = {};
+    try { json = await res.json(); } catch (e) {}
+    return { ok: res.ok, status: res.status, json };
+  };
+
+  const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+  function avisar(texto, tipo) {
+    const t = document.getElementById('toast');
+    t.className = tipo || ''; t.innerText = texto; t.style.display = 'block';
+    clearTimeout(avisar.tm); avisar.tm = setTimeout(() => t.style.display = 'none', 4500);
+  }
+
+  // ------------------------------------------------------------ sesión
+  async function entrar() {
+    clave = document.getElementById('clave').value || clave;
+    const r = await api('GET', '/meta');
+    if (!r.ok) {
+      document.getElementById('error-login').innerText = r.json.error || 'No se pudo conectar con el servidor.';
+      return;
+    }
+    sessionStorage.setItem('adminKey', clave);
+    meta = r.json;
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('btn-salir').style.display = 'inline-block';
+    const menu = document.getElementById('menu');
+    menu.innerHTML = Object.entries(meta).map(([k, t]) => `<button data-tabla="${k}" onclick="abrirTabla('${k}')">${esc(t.etiqueta)}</button>`).join('');
+    abrirTabla(Object.keys(meta)[0]);
+  }
+  function salir() { sessionStorage.removeItem('adminKey'); location.reload(); }
+
+  // ------------------------------------------------------------ datos
+  async function cargar(tabla) {
+    const r = await api('GET', '/' + tabla);
+    if (!r.ok) { avisar(r.json.error || 'Error al cargar', 'error'); datos[tabla] = datos[tabla] || []; return; }
+    datos[tabla] = r.json;
+  }
+
+  function etiquetaFk(tabla, id) {
+    if (id === null || id === undefined) return '—';
+    const fila = (datos[tabla] || []).find(f => f.id === id);
+    if (!fila) return '#' + id;
+    if (tabla === 'etapas') return `#${id} · J${fila.juego_id} E${fila.numero_etapa} ${fila.titulo_etapa}`;
+    if (tabla === 'acertijos') return `#${id}`;
+    return `#${id} · ${fila[meta[tabla].filaEtiqueta]}`;
+  }
+
+  async function abrirTabla(tabla) {
+    tablaActual = tabla;
+    document.querySelectorAll('nav button').forEach(b => b.classList.toggle('activa', b.dataset.tabla === tabla));
+    document.getElementById('titulo-tabla').innerText = meta[tabla].etiqueta.toUpperCase();
+    document.getElementById('btn-nuevo').style.display = meta[tabla].soloEditar ? 'none' : 'inline-block';
+    document.getElementById('buscar').value = '';
+    const fks = new Set(meta[tabla].campos.filter(c => c.t === 'fk').map(c => c.fk));
+    await Promise.all([tabla, ...fks].map(cargar));
+    dibujarTabla();
+  }
+
+  function celda(tabla, col, valor) {
+    const campo = meta[tabla].campos.find(c => c.n === col);
+    if (campo && campo.t === 'fk') return esc(etiquetaFk(campo.fk, valor));
+    if (campo && campo.t === 'bool') return valor ? '✓' : '✗';
+    const s = String(valor ?? '');
+    return esc(s.length > 90 ? s.slice(0, 90) + '…' : s);
+  }
+
+  function dibujarTabla() {
+    const t = meta[tablaActual], filas = datos[tablaActual] || [];
+    const q = document.getElementById('buscar').value.trim().toLowerCase();
+    const vistas = q ? filas.filter(f => t.lista.some(c => String(f[c] ?? '').toLowerCase().includes(q))) : filas;
+    if (vistas.length === 0) { document.getElementById('contenido').innerHTML = '<div class="vacio">No hay registros.</div>'; return; }
+    let html = '<table><thead><tr>' + t.lista.map(c => `<th>${esc(c)}</th>`).join('') + '<th>Acciones</th></tr></thead><tbody>';
+    vistas.forEach(f => {
+      html += '<tr>' + t.lista.map(c => `<td title="${esc(f[c])}">${celda(tablaActual, c, f[c])}</td>`).join('') +
+        `<td class="acciones"><button class="azul" onclick="abrirFormulario(${f.id})">Editar</button>` +
+        `<button class="rojo" onclick="eliminar(${f.id})">Eliminar</button></td></tr>`;
+    });
+    document.getElementById('contenido').innerHTML = html + '</tbody></table>';
+  }
+
+  // ------------------------------------------------------------ formulario (crear / editar)
+  function abrirFormulario(id) {
+    editandoId = id ?? null;
+    const t = meta[tablaActual];
+    const fila = editandoId !== null ? (datos[tablaActual] || []).find(f => f.id === editandoId) : null;
+    let html = `<h2>${editandoId !== null ? 'EDITAR' : 'NUEVO'} · ${esc(t.etiqueta.toUpperCase())}</h2>`;
+    t.campos.forEach(c => {
+      const v = fila ? fila[c.n] : (c.def ?? '');
+      const req = c.req ? ' *' : '';
+      html += `<div class="campo"><label>${esc(c.n)}${req}</label>`;
+      if (c.t === 'textarea') html += `<textarea data-campo="${c.n}">${esc(v)}</textarea>`;
+      else if (c.t === 'bool') html += `<div class="chk"><input type="checkbox" data-campo="${c.n}" ${v === undefined || v === '' ? 'checked' : (v ? 'checked' : '')}> <span>Sí</span></div>`;
+      else if (c.t === 'enum') html += `<select data-campo="${c.n}">${c.opciones.map(o => `<option value="${o}" ${o === v ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
+      else if (c.t === 'fk') {
+        const opciones = (datos[c.fk] || []).map(f => `<option value="${f.id}" ${f.id === v ? 'selected' : ''}>${esc(etiquetaFk(c.fk, f.id))}</option>`).join('');
+        html += `<select data-campo="${c.n}">${c.req ? '' : '<option value="">(ninguno)</option>'}${opciones}</select>`;
+      }
+      else html += `<input data-campo="${c.n}" type="${c.t === 'number' ? 'number' : 'text'}" value="${esc(v)}">`;
+      html += '</div>';
+    });
+    html += '<div id="error-modal"></div><div class="botones"><button onclick="cerrarFormulario()">Cancelar</button><button class="verde" onclick="guardar()">Guardar</button></div>';
+    document.getElementById('modal').innerHTML = html;
+    document.getElementById('modal-fondo').style.display = 'flex';
+  }
+  function cerrarFormulario() { document.getElementById('modal-fondo').style.display = 'none'; }
+
+  async function guardar() {
+    const cuerpo = {};
+    document.querySelectorAll('#modal [data-campo]').forEach(el => {
+      cuerpo[el.dataset.campo] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    const r = editandoId !== null ? await api('PUT', `/${tablaActual}/${editandoId}`, cuerpo) : await api('POST', `/${tablaActual}`, cuerpo);
+    if (!r.ok) { document.getElementById('error-modal').innerText = r.json.error || 'Error al guardar'; return; }
+    cerrarFormulario();
+    await cargar(tablaActual);
+    dibujarTabla();
+    avisar(editandoId !== null ? 'Registro actualizado' : 'Registro creado', 'ok');
+  }
+
+  async function eliminar(id) {
+    const fila = (datos[tablaActual] || []).find(f => f.id === id);
+    const nombre = fila ? (fila[meta[tablaActual].filaEtiqueta] ?? id) : id;
+    if (!confirm(`¿Eliminar «${nombre}» (id ${id})? Esta acción no se puede deshacer.`)) return;
+    const r = await api('DELETE', `/${tablaActual}/${id}`);
+    if (!r.ok) { avisar(r.json.error || 'No se pudo eliminar', 'error'); return; }
+    await cargar(tablaActual);
+    dibujarTabla();
+    avisar('Registro eliminado', 'ok');
+  }
+
+  document.getElementById('modal-fondo').addEventListener('mousedown', e => { if (e.target.id === 'modal-fondo') cerrarFormulario(); });
+  if (clave) entrar();
+</script>
+</body>
+</html>

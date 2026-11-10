@@ -4,39 +4,44 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Escape Room 16-Bit Multiplayer</title>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Press Start 2P', cursive; image-rendering: pixelated; }
-    body { background: #0d0d15; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    /* Texto general: VT323 (pixelada pero MUY legible). Títulos y botones: Press Start 2P. */
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'VT323', monospace; image-rendering: pixelated; }
+    h2, h3, h4, .btn-pixel, .px { font-family: 'Press Start 2P', cursive; }
+    body { background: #0d0d15; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-size: 22px; }
     #game-container { width: 960px; height: 620px; background: #1a1a24; border: 6px solid #4a4a68; display: flex; flex-direction: column; position: relative; }
-    header { background: #2b2b3a; padding: 12px; display: flex; justify-content: space-between; border-bottom: 4px solid #4a4a68; font-size: 9px; }
-    .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+    header { background: #2b2b3a; padding: 8px 12px; display: flex; justify-content: space-between; border-bottom: 4px solid #4a4a68; font-size: 21px; line-height: 24px; }
+    .screen { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; justify-content: center; padding: 16px; text-align: center; }
     .screen.active { display: flex; }
-    .btn-pixel { background: #ff6b81; color: #fff; border: none; padding: 10px 16px; margin: 8px; font-size: 10px; cursor: pointer; box-shadow: 0 4px 0 #b33939; }
+    .btn-pixel { background: #ff6b81; color: #fff; border: none; padding: 12px 18px; margin: 8px; font-size: 12px; cursor: pointer; box-shadow: 0 4px 0 #b33939; }
     .btn-pixel.green { background: #2ed573; box-shadow: 0 4px 0 #20bf6b; }
+    .btn-pixel.gris { background: #57606f; box-shadow: 0 4px 0 #2f3640; }
     .btn-pixel:disabled { cursor: not-allowed; }
-    input, select { background: #000; border: 2px solid #4a4a68; color: #2ed573; padding: 10px; font-size: 10px; margin: 8px; outline: none; text-align: center; width: 320px; }
-    footer { height: 120px; background: #2b2b3a; border-top: 4px solid #4a4a68; display: flex; padding: 8px; gap: 8px; }
-    .log-panel { flex: 2; background: #000; border: 2px solid #4a4a68; padding: 6px; font-size: 8px; color: #ffa502; overflow-y: auto; }
-    .inv-panel { flex: 1; background: #000; border: 2px solid #4a4a68; padding: 6px; font-size: 8px; color: #70a1ff; }
-    .inv-slot { display: inline-block; width: 40px; height: 40px; border: 2px dashed #4a4a68; margin: 4px; vertical-align: top; text-align: center; line-height: 36px; font-size: 18px; }
+    input, select { background: #000; border: 2px solid #4a4a68; color: #2ed573; padding: 8px 10px; font-size: 26px; margin: 8px; outline: none; text-align: center; width: 360px; }
+    footer { height: 124px; background: #2b2b3a; border-top: 4px solid #4a4a68; display: flex; padding: 8px; gap: 8px; }
+    .log-panel { flex: 2; background: #000; border: 2px solid #4a4a68; padding: 6px 8px; font-size: 21px; line-height: 20px; color: #ffa502; overflow-y: auto; }
+    .inv-panel { flex: 1; background: #000; border: 2px solid #4a4a68; padding: 6px 8px; font-size: 21px; line-height: 22px; color: #70a1ff; }
+    .inv-slot { display: inline-block; width: 46px; height: 46px; border: 2px dashed #4a4a68; margin: 4px; vertical-align: top; text-align: center; line-height: 42px; font-size: 22px; }
     .inv-slot.lleno { border-style: solid; border-color: #eccc68; }
+    a.enlace { color: #70a1ff; font-size: 22px; margin-top: 14px; }
 
     /* Panel flotante (pistas, libreta, puerta) */
-    #panel { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 760px; max-height: 420px;
-             overflow-y: auto; background: #0b0b12; border: 4px solid #eccc68; padding: 16px; z-index: 20; text-align: left;
-             font-size: 9px; line-height: 17px; box-shadow: 0 0 0 4px #000; }
-    #panel h3 { color: #eccc68; font-size: 10px; margin: 6px 0 8px 0; }
+    #panel { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 820px; max-height: 440px;
+             overflow-y: auto; background: #0b0b12; border: 4px solid #eccc68; padding: 14px 18px; z-index: 20; text-align: left;
+             font-size: 25px; line-height: 27px; box-shadow: 0 0 0 4px #000; }
+    #panel h3 { color: #eccc68; font-size: 12px; line-height: 18px; margin: 6px 0 8px 0; }
     #panel .txt { color: #fff; margin-bottom: 12px; }
     #panel .sub { color: #a4b0be; margin-bottom: 10px; }
-    #panel .ayuda { color: #70a1ff; margin-top: 10px; font-size: 8px; }
+    #panel .ayuda { color: #70a1ff; margin-top: 10px; font-size: 21px; }
     #panel .ok { color: #2ed573; margin: 8px 0; }
-    #panel .err { color: #ff4757; margin: 8px 0; }
+    #panel .err { color: #ff6b6b; margin: 8px 0; }
     #panel .pista { border-top: 2px dashed #4a4a68; padding: 8px 0; color: #70a1ff; }
     #panel .fila { display: flex; align-items: center; gap: 10px; margin: 2px 0; }
-    #panel .fila label { width: 330px; color: #fff; }
+    #panel .fila label { width: 340px; color: #fff; }
     #panel .fila input { flex: 1; margin: 4px 0; width: auto; text-align: left; }
-    #panel input.respuesta { width: 340px; text-align: left; margin-left: 0; }
+    #panel input.respuesta { width: 380px; text-align: left; margin-left: 0; }
+    .aviso-terror { color: #ff4757; font-size: 22px; margin: 4px 0; }
   </style>
 </head>
 <body>
@@ -54,22 +59,24 @@
 
     <!-- PANTALLA 1: LOGIN -->
     <div id="screen-auth" class="screen active">
-      <h2 style="color:#ff4757; font-size:16px; margin-bottom:15px;">INICIAR SESIÓN</h2>
+      <h2 style="color:#ff4757; font-size:18px; margin-bottom:15px;">INICIAR SESIÓN</h2>
       <input type="text" id="auth-username" placeholder="Tu Usuario (Ej: carlos_pro)" value="carlos_pro">
       <div>
         <button class="btn-pixel green" onclick="iniciarSesion()">ENTRAR</button>
         <button class="btn-pixel" onclick="registrarUsuario()">REGISTRARSE</button>
       </div>
+      <a class="enlace" href="admin.html">Panel de administración (CRUD)</a>
     </div>
 
     <!-- PANTALLA 2: LOBBY -->
     <div id="screen-lobby-select" class="screen">
-      <h3 style="margin-bottom:10px;">SELECCIONA UN JUEGO</h3>
-      <select id="select-juegos"><option value="">Cargando juegos de BD...</option></select>
+      <h3 style="margin-bottom:10px; font-size:14px;">SELECCIONA UN JUEGO</h3>
+      <select id="select-juegos" onchange="actualizarAvisoJuego()"><option value="">Cargando juegos de BD...</option></select>
+      <p id="aviso-terror" class="aviso-terror" style="display:none;">⚠ Este juego contiene sustos y sonidos fuertes.</p>
       <div>
         <button class="btn-pixel green" onclick="crearSalaLobby()">CREAR NUEVA SALA</button>
       </div>
-      <hr style="width:50%; margin:15px 0; border-color:#4a4a68;">
+      <hr style="width:50%; margin:12px 0; border-color:#4a4a68;">
       <input type="text" id="join-codigo" placeholder="CÓDIGO DE SALA" maxlength="10">
       <div>
         <button class="btn-pixel" onclick="unirseASalaLobby()">UNIRSE A SALA</button>
@@ -78,18 +85,19 @@
 
     <!-- PANTALLA 3: SALA DE ESPERA -->
     <div id="screen-waiting-room" class="screen">
-      <h3 style="color:#eccc68;">SALA DE ESPERA</h3>
-      <p style="font-size:10px; margin:8px 0;">Código: <span id="wait-codigo" style="color:#2ed573; font-size:14px;"></span></p>
-      <p style="font-size:8px; color:#ff6b81;" id="wait-min-msg">Esperando jugadores...</p>
-      <h4 style="margin-top:6px;">JUGADORES EN SALA:</h4>
-      <ul id="lista-jugadores" style="list-style:none; margin:8px 0; font-size:9px; line-height:16px; color:#70a1ff;"></ul>
-      <div style="border:2px dashed #4a4a68; padding:10px; margin:6px 0; font-size:8px; line-height:15px; max-width:700px;">
-        <div style="color:#eccc68; margin-bottom:6px;">TU MISIÓN</div>
+      <h3 style="color:#eccc68; font-size:14px;">SALA DE ESPERA</h3>
+      <p style="font-size:26px; margin:6px 0;">Código: <span id="wait-codigo" style="color:#2ed573; font-size:32px;"></span></p>
+      <p style="font-size:22px; color:#ff6b81;" id="wait-min-msg">Esperando jugadores...</p>
+      <ul id="lista-jugadores" style="list-style:none; margin:6px 0; font-size:22px; line-height:22px; color:#70a1ff;"></ul>
+      <div style="border:2px dashed #4a4a68; padding:8px 12px; margin:4px 0; font-size:22px; line-height:22px; max-width:860px;">
+        <div class="px" style="color:#eccc68; font-size:11px; margin-bottom:6px;">TU MISIÓN</div>
         <div id="wait-mision" style="color:#fff;"></div>
-        <div style="color:#70a1ff; margin-top:8px;">FLECHAS O A/D = MOVER &nbsp; ESPACIO O W = SALTAR &nbsp; E = INTERACTUAR &nbsp; Q = LIBRETA</div>
+        <div style="color:#70a1ff; margin-top:6px;">FLECHAS o A/D = mover · ESPACIO o W = saltar · E = interactuar · Q = libreta · M = sonido</div>
       </div>
+      <p id="wait-aviso-terror" class="aviso-terror" style="display:none;">⚠ Contiene sustos y sonidos fuertes. Pueden desactivar los sustos aquí:</p>
+      <button id="btn-sustos" class="btn-pixel gris" style="display:none;" onclick="alternarSustos()">SUSTOS: ACTIVADOS</button>
       <button id="btn-iniciar-juego" class="btn-pixel green" onclick="solicitarInicioJuego()">¡INICIAR JUEGO!</button>
-      <p id="wait-host-msg" style="font-size:8px; color:#ffa502; display:none;">Esperando a que el anfitrión inicie el juego...</p>
+      <p id="wait-host-msg" style="font-size:22px; color:#ffa502; display:none;">Esperando a que el anfitrión inicie el juego...</p>
     </div>
 
     <!-- PANTALLA 4: JUEGO -->
@@ -99,21 +107,19 @@
 
     <!-- PANTALLA 5: FIN -->
     <div id="screen-end" class="screen">
-      <h2 id="end-title" style="font-size:16px; margin-bottom:15px;">¡JUEGO TERMINADO!</h2>
-      <p id="end-msg" style="font-size:10px; margin-bottom:20px;"></p>
+      <h2 id="end-title" style="font-size:18px; margin-bottom:15px;">¡JUEGO TERMINADO!</h2>
+      <p id="end-msg" style="font-size:26px; margin-bottom:20px;"></p>
       <button class="btn-pixel green" onclick="location.reload()">VOLVER AL INICIO</button>
     </div>
 
-    <!-- Panel flotante -->
     <div id="panel"></div>
-
   </div>
 
   <footer>
     <div class="log-panel" id="log-box">> Conectado al sistema de Escape Room...</div>
     <div class="inv-panel">
-      <div>PISTAS: <span id="lbl-pistas">0/0</span> (Q = LIBRETA)</div>
-      <div id="inventory-slots" style="margin-top:5px;"></div>
+      <div>PISTAS: <span id="lbl-pistas">0/0</span> (Q = libreta)</div>
+      <div id="inventory-slots" style="margin-top:4px;"></div>
     </div>
   </footer>
 </div>
@@ -121,20 +127,13 @@
 <script src="config.js"></script>
 <script>
   // ============================================================ ESTADO GENERAL
-  let usuarioActual = null;
-  let salaActual = null;
-  let rolActual = null;       // { id, nombre_rol, descripcion, jugador_sala_id }
-  let loopInterval = null;
-  let juegoIniciado = false;
-  let juegoActivo = false;    // true mientras se está viendo la pantalla del juego
-  let juegoTerminado = false;
+  let usuarioActual = null, salaActual = null, rolActual = null;
+  let juegosCache = [];
+  let loopInterval = null, monitorInterval = null, relojInterval = null, eventosInterval = null;
+  let juegoIniciado = false, juegoActivo = false, juegoTerminado = false;
   let finJuegoMs = null;
-  let monitorInterval = null;
-  let relojInterval = null;
-
   const keys = {};
-  let panelAbierto = false;
-  let panelConFormulario = false;
+  let panelAbierto = false, panelConFormulario = false;
 
   // ============================================================ DATOS DE PRESENTACIÓN
   const ICONOS = {
@@ -142,14 +141,21 @@
     ficha:'📋', receta:'📜', ampolla:'💉', estanteria:'📚', bitacora:'📒', alarma:'🚨', servidor:'🗄️', probeta:'⚗️',
     protocolo:'📑', pizarra:'🗒️', engranaje:'⚙️', informe:'📄', vial:'🧫', analisis:'🔬', camara:'📹', reloj:'🕰️',
     terminal:'💻', tanque:'🛢️', manometro:'⏲️', valvula:'🔧', cuaderno:'📓', diario:'📔', alfabeto:'🔤', caja:'📦',
-    puerta:'🚪', cuadro:'🖼️', planta:'🌿', lampara:'💡', calavera:'💀', radiacion:'☢️', tuberia:'🔩'
+    puerta:'🚪', cuadro:'🖼️', planta:'🌿', lampara:'💡', calavera:'💀', radiacion:'☢️', tuberia:'🔩',
+    // terror
+    pared:'📜', retrato:'🖼️', termometro:'🌡️', manual:'📕', recorte:'📰', telefono:'☎️', campana:'🔔', planilla:'📋',
+    muneca:'🧸', suero:'💧', equipo:'🩺', calentador:'🔥', enchufe:'🔌', velas:'🕯️', espejo:'🔍', resistencia:'🔋',
+    piso:'🔲', escalera:'🔼', telarana:'🕸️', vela:'🕯️', fantasma:'👻', ataud:'⚰️', murcielago:'🦇', cadenas:'⛓️', arana:'🕷️'
   };
   const icono = k => ICONOS[k] || '❔';
   const COLOR_ROL = { 1:'#70a1ff', 2:'#2ed573', 3:'#ffa502', 4:'#ff6b81', 5:'#a29bfe', 6:'#eccc68' };
   const THEMES = {
-    1: { top:'#1e272e', bottom:'#2f3640', plat:'#57606f', edge:'#a4b0be', puerta:'#d2dae2' },
-    2: { top:'#1a1a2e', bottom:'#2d2b55', plat:'#4b4b7a', edge:'#9b8cff', puerta:'#b8a9ff' },
-    3: { top:'#2a1515', bottom:'#4a2222', plat:'#6b3b3b', edge:'#ff9f7f', puerta:'#ffb199' }
+    lab1: { top:'#1e272e', bottom:'#2f3640', plat:'#57606f', edge:'#a4b0be', puerta:'#d2dae2' },
+    lab2: { top:'#1a1a2e', bottom:'#2d2b55', plat:'#4b4b7a', edge:'#9b8cff', puerta:'#b8a9ff' },
+    lab3: { top:'#2a1515', bottom:'#4a2222', plat:'#6b3b3b', edge:'#ff9f7f', puerta:'#ffb199' },
+    san1: { top:'#0e1717', bottom:'#1b2c2a', plat:'#3c4d4a', edge:'#7fb3a8', puerta:'#8fa8a3' },
+    san2: { top:'#170f1c', bottom:'#2b1a33', plat:'#483a52', edge:'#b48ad6', puerta:'#a58bb8' },
+    san3: { top:'#1a0b0b', bottom:'#331010', plat:'#4d2b2b', edge:'#c0463c', puerta:'#b07a74' }
   };
 
   function esc(t) {
@@ -164,6 +170,145 @@
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
   }
+
+  // ============================================================ SONIDO (sintetizado con Web Audio)
+  // No hay archivos de audio: todo se genera en el navegador. Si pones tus propios MP3 en
+  // frontend/sonidos/ (grito.mp3, susto.mp3, ambiente.mp3) se usan en lugar de los sintetizados.
+  const Sonido = (() => {
+    let ctx = null, master = null, silenciado = false;
+    const buffers = {};
+    let ambienteNodos = [], latidoTimer = null, ritmoLatido = 1100;
+
+    // ---- síntesis: reciben cualquier contexto de audio (también OfflineAudioContext, para pruebas)
+    function ruido(c, seg) {
+      const n = Math.max(1, Math.floor(c.sampleRate * seg)), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      return b;
+    }
+    function nota(c, dest, t, tipo, f0, f1, dur, pico) {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = tipo; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(pico, t + Math.min(0.02, dur / 4));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + 0.05);
+    }
+    function sPing(c, d, t) { nota(c, d, t, 'sine', 880, 1320, 0.14, 0.22); }
+    function sOk(c, d, t) { [523, 659, 784].forEach((f, i) => nota(c, d, t + i * 0.1, 'triangle', f, f * 1.01, 0.18, 0.2)); }
+    function sError(c, d, t) {
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; f.connect(d);
+      nota(c, f, t, 'sawtooth', 170, 110, 0.25, 0.25);
+    }
+    function sPaso(c, d, t) {
+      const s = c.createBufferSource(); s.buffer = ruido(c, 0.12);
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 800;
+      const g = c.createGain(); g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+      s.connect(f); f.connect(g); g.connect(d); s.start(t);
+    }
+    function sPuerta(c, d, t) { // puerta que rechina
+      const dur = 1.0, o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(140, t + dur);
+      const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 13; lg.gain.value = 14; lfo.connect(lg); lg.connect(o.frequency);
+      f.type = 'lowpass'; f.frequency.value = 700;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.28, t + 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(f); f.connect(g); g.connect(d); o.start(t); o.stop(t + dur + 0.05); lfo.start(t); lfo.stop(t + dur + 0.05);
+    }
+    function sLatido(c, d, t) { nota(c, d, t, 'sine', 62, 40, 0.16, 0.55); nota(c, d, t + 0.2, 'sine', 52, 36, 0.18, 0.4); }
+    function sGrito(c, d, t) { // grito: dos voces desafinadas con vibrato, formantes y aire
+      const dur = 1.5, salida = c.createGain();
+      salida.gain.setValueAtTime(0.0001, t); salida.gain.exponentialRampToValueAtTime(0.9, t + 0.04);
+      salida.gain.setValueAtTime(0.9, t + 0.75); salida.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      salida.connect(d);
+      [0, 11].forEach(det => {
+        const o = c.createOscillator(); o.type = 'sawtooth';
+        o.frequency.setValueAtTime(480, t); o.frequency.exponentialRampToValueAtTime(1250, t + 0.28);
+        o.frequency.setValueAtTime(1250, t + 0.28); o.frequency.exponentialRampToValueAtTime(760, t + dur);
+        o.detune.value = det;
+        const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 7.5; lg.gain.value = 38;
+        lfo.connect(lg); lg.connect(o.frequency);
+        [[900, 4], [2700, 6]].forEach(([fr, q]) => {
+          const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fr; bp.Q.value = q;
+          o.connect(bp); bp.connect(salida);
+        });
+        o.start(t); o.stop(t + dur + 0.05); lfo.start(t); lfo.stop(t + dur + 0.05);
+      });
+      const nz = c.createBufferSource(); nz.buffer = ruido(c, dur);
+      const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2400;
+      const ng = c.createGain(); ng.gain.value = 0.28; nz.connect(hp); hp.connect(ng); ng.connect(salida); nz.start(t);
+    }
+    function sSusto(c, d, t) { // golpe grave + chillido + grito
+      nota(c, d, t, 'sine', 95, 28, 0.7, 0.95);
+      const s = c.createBufferSource(); s.buffer = ruido(c, 0.45);
+      const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+      const g = c.createGain(); g.gain.setValueAtTime(0.7, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      s.connect(f); f.connect(g); g.connect(d); s.start(t);
+      nota(c, d, t, 'sawtooth', 1900, 3400, 0.5, 0.25);
+      sGrito(c, d, t + 0.03);
+    }
+    function sAmbiente(c, d, t) { // zumbido grave + viento. Devuelve los nodos para poder pararlos
+      const nodos = [], g = c.createGain(); g.gain.value = 0.11; g.connect(d);
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 170; lp.connect(g);
+      [55, 55.8].forEach(fr => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr; o.connect(lp); o.start(t); nodos.push(o); });
+      const trem = c.createOscillator(), tg = c.createGain(); trem.frequency.value = 0.18; tg.gain.value = 0.05; trem.connect(tg); tg.connect(g.gain); trem.start(t); nodos.push(trem);
+      const w = c.createBufferSource(); w.buffer = ruido(c, 4); w.loop = true;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 480; bp.Q.value = 0.7;
+      const wg = c.createGain(); wg.gain.value = 0.05;
+      const wl = c.createOscillator(), wlg = c.createGain(); wl.frequency.value = 0.07; wlg.gain.value = 220; wl.connect(wlg); wlg.connect(bp.frequency); wl.start(t); nodos.push(wl);
+      w.connect(bp); bp.connect(wg); wg.connect(d); w.start(t); nodos.push(w);
+      return nodos;
+    }
+
+    // ---- uso en el juego
+    function cargarArchivos() {
+      ['grito', 'susto', 'ambiente'].forEach(async nombre => {
+        try {
+          const r = await fetch(`sonidos/${nombre}.mp3`);
+          if (!r.ok || !/audio|octet/i.test(r.headers.get('content-type') || '')) return;
+          buffers[nombre] = await ctx.decodeAudioData(await r.arrayBuffer());
+        } catch (e) { /* sin archivo: se usa el sintetizado */ }
+      });
+    }
+    function init() {
+      if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        ctx = new AC();
+        const comp = ctx.createDynamicsCompressor(); comp.connect(ctx.destination);
+        master = ctx.createGain(); master.gain.value = silenciado ? 0 : 0.8; master.connect(comp);
+        cargarArchivos();
+      } catch (e) { ctx = null; }
+    }
+    const listo = () => ctx && ctx.state !== 'closed';
+    function reproducir(nombre, vol) {
+      const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = buffers[nombre]; g.gain.value = vol;
+      s.connect(g); g.connect(master); s.start();
+    }
+    function ya() { return ctx.currentTime + 0.01; }
+    return {
+      init,
+      ping() { if (listo()) sPing(ctx, master, ya()); },
+      ok() { if (listo()) sOk(ctx, master, ya()); },
+      error() { if (listo()) sError(ctx, master, ya()); },
+      puerta() { if (listo()) sPuerta(ctx, master, ya()); },
+      paso() { if (listo()) sPaso(ctx, master, ya()); },
+      susto() { if (!listo()) return; if (buffers.susto) reproducir('susto', 1); else sSusto(ctx, master, ya()); if (buffers.grito) reproducir('grito', 0.9); },
+      iniciarAmbiente() {
+        if (!listo() || ambienteNodos.length) return;
+        if (buffers.ambiente) { const s = ctx.createBufferSource(); s.buffer = buffers.ambiente; s.loop = true; s.connect(master); s.start(); ambienteNodos = [s]; }
+        else ambienteNodos = sAmbiente(ctx, master, ya());
+        const latir = () => { if (listo()) sLatido(ctx, master, ya()); latidoTimer = setTimeout(latir, ritmoLatido); };
+        latidoTimer = setTimeout(latir, 1500);
+      },
+      detenerAmbiente() {
+        ambienteNodos.forEach(n => { try { n.stop(); } catch (e) {} }); ambienteNodos = [];
+        clearTimeout(latidoTimer); latidoTimer = null;
+      },
+      ritmo(ms) { ritmoLatido = ms; },
+      alternarSilencio() { silenciado = !silenciado; if (master) master.gain.value = silenciado ? 0 : 0.8; return silenciado; },
+      silenciado: () => silenciado,
+      synth: { sPing, sOk, sError, sPuerta, sPaso, sLatido, sGrito, sSusto, sAmbiente }
+    };
+  })();
+  ['pointerdown', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sonido.init()));
 
   // ============================================================ TECLADO
   function enCampo() {
@@ -181,6 +326,7 @@
 
   function teclaPulsada(k) {
     if (!juegoActivo || juegoTerminado) return;
+    if (k === 'm' || k === 'M') { log(Sonido.alternarSilencio() ? 'Sonido: SILENCIADO' : 'Sonido: ACTIVADO'); return; }
     if (panelAbierto) {
       if (k === 'Escape') cerrarPanel();
       else if (!panelConFormulario && ['e', 'E', 'Enter', 'q', 'Q'].includes(k)) cerrarPanel();
@@ -194,18 +340,27 @@
   async function cargarJuegos() {
     try {
       const res = await fetch(`${API_URL}/api/juegos`);
-      const juegos = await res.json();
+      juegosCache = await res.json();
       const select = document.getElementById('select-juegos');
-      if (!juegos || juegos.length === 0) {
+      if (!juegosCache || juegosCache.length === 0) {
         select.innerHTML = '<option value="">No hay juegos disponibles</option>';
         return;
       }
-      select.innerHTML = juegos.map(j =>
-        `<option value="${j.id}">${esc(j.titulo)} (Min: ${j.min_jugadores} - Max: ${j.max_jugadores})</option>`
+      select.innerHTML = juegosCache.map(j =>
+        `<option value="${j.id}">${j.ambiente === 'terror' ? '[TERROR] ' : ''}${esc(j.titulo)} (${j.min_jugadores}-${j.max_jugadores} jug.)</option>`
       ).join('');
+      actualizarAvisoJuego();
     } catch (e) {
       log('Error al cargar juegos: ' + e.message);
     }
+  }
+  function juegoSeleccionado() {
+    const id = Number(document.getElementById('select-juegos').value);
+    return juegosCache.find(j => j.id === id);
+  }
+  function actualizarAvisoJuego() {
+    const j = juegoSeleccionado();
+    document.getElementById('aviso-terror').style.display = (j && j.ambiente === 'terror') ? 'block' : 'none';
   }
 
   // ============================================================ 2. AUTENTICACIÓN
@@ -285,14 +440,27 @@
       document.getElementById('wait-codigo').innerText = salaActual.codigo_acceso;
       document.getElementById('wait-mision').innerText =
         `Eres el ${rolActual.nombre_rol.toUpperCase()}. ${rolActual.descripcion || ''} ` +
-        'En cada etapa tendrás un acertijo propio: explora el cuarto, busca pistas y razona. ' +
-        'Solo tú ves tus pistas, así que tu equipo te necesita. Para abrir cada puerta hay que reunir las respuestas de TODOS.';
+        'En cada etapa tendrás un acertijo propio: explora, busca pistas y razona. ' +
+        'Solo tú ves tus pistas. Para abrir cada puerta hay que reunir las respuestas de TODOS.';
+      const juego = juegosCache.find(j => j.id === salaActual.juego_id);
+      const terror = !!(juego && juego.ambiente === 'terror');
+      document.getElementById('wait-aviso-terror').style.display = terror ? 'block' : 'none';
+      document.getElementById('btn-sustos').style.display = terror ? 'inline-block' : 'none';
       log(`Rol asignado: ${rolActual.nombre_rol}`);
       cambiarPantalla('screen-waiting-room');
       iniciarSondeoJugadores(data.min_jugadores);
     } catch (e) {
       log('Error al unirse a la sala: ' + e.message);
     }
+  }
+
+  let sustosActivos = true;
+  function alternarSustos() {
+    sustosActivos = !sustosActivos;
+    const b = document.getElementById('btn-sustos');
+    b.innerText = sustosActivos ? 'SUSTOS: ACTIVADOS' : 'SUSTOS: DESACTIVADOS';
+    b.classList.toggle('gris', sustosActivos);
+    b.classList.toggle('green', !sustosActivos);
   }
 
   function esAnfitrion() {
@@ -350,10 +518,11 @@
     clearInterval(loopInterval);
     cambiarPantalla('screen-game');
     juegoActivo = true;
+    Sonido.init();
     await cargarEscena();
     iniciarJuegoCanvas();
     iniciarMonitorSala();
-    log('Controles: flechas/AD mover · ESPACIO o W saltar · E interactuar · Q libreta');
+    log('Controles: flechas/AD mover · ESPACIO o W saltar · E interactuar · Q libreta · M sonido');
   }
 
   // ============================================================ 4. ESCENA DE LA ETAPA
@@ -361,12 +530,14 @@
   const GRAV = 0.55, JUMP_V = -11.2, SPEED = 3.3;
   const player = { x: 30, y: 298, w: 28, h: 42, vx: 0, vy: 0, onGround: false, facing: 1 };
 
-  let escena = null;          // { etapa, total_etapas, objetos, acertijo }
+  let escena = null;
   let plataformas = [], pistas = [], decor = [], puerta = null, interactuables = [];
-  let notas = [];             // pistas ya examinadas en esta etapa
+  let notas = [];
   let miRespuesta = null;
   let banner = null;
   let cargandoEscena = false;
+  let temaActual = THEMES.lab1;
+  let esTerror = false, ambienteIniciado = false;
 
   function resetJugador() {
     player.x = 30; player.y = WORLD.floorY - player.h; player.vx = 0; player.vy = 0; player.onGround = true; player.facing = 1;
@@ -394,6 +565,11 @@
       if (panelAbierto) cerrarPanel();
 
       const n = data.etapa.numero_etapa;
+      temaActual = THEMES[data.etapa.tema] || THEMES['lab' + n] || THEMES.lab1;
+      esTerror = data.ambiente === 'terror';
+      if (esTerror && !ambienteIniciado) { ambienteIniciado = true; Sonido.iniciarAmbiente(); iniciarEventosTerror(); }
+      if (esTransicion) Sonido.puerta();
+
       document.getElementById('lbl-etapa').innerText = `${n}/${data.total_etapas}`;
       banner = { texto: `ETAPA ${n}: ${data.etapa.titulo_etapa.toUpperCase()}`, hasta: performance.now() + 3500 };
       log(`${esTransicion ? '¡PUERTA ABIERTA! ' : ''}ETAPA ${n}/${data.total_etapas}: ${data.etapa.titulo_etapa}`);
@@ -431,15 +607,24 @@
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   }
 
+  const sustosVistos = new Set();
   function examinar(o) {
     if (!notas.find(n => n.id === o.id)) {
       notas.push({ id: o.id, nombre: o.nombre, icono: o.icono, texto: o.texto });
       renderPistas();
       log(`Nueva pista: ${o.nombre}`);
     }
-    abrirPanel(
+    Sonido.ping();
+    const mostrar = () => abrirPanel(
       `<h3>${icono(o.icono)} ${esc(o.nombre)}</h3><div class="txt">${esc(o.texto)}</div>` +
       `<div class="ayuda">[E] o [ESC] para cerrar · [Q] abre tu libreta con todas las pistas</div>`, false);
+    if (esTerror && sustosActivos && o.efecto === 'susto' && !sustosVistos.has(o.id)) {
+      sustosVistos.add(o.id);
+      lanzarSusto();
+      setTimeout(mostrar, 1200);
+    } else {
+      mostrar();
+    }
   }
 
   function abrirLibreta(mensaje) {
@@ -480,13 +665,15 @@
         body: JSON.stringify({ respuesta: valor, jugador_sala_id: rolActual.jugador_sala_id })
       });
       const data = await res.json();
-      if (!res.ok) return abrirLibreta({ ok: false, texto: data.error || 'Error' });
+      if (!res.ok) { Sonido.error(); return abrirLibreta({ ok: false, texto: data.error || 'Error' }); }
       if (data.correcto) {
         escena.acertijo.resuelto = true;
         miRespuesta = valor;
+        Sonido.ok();
         log(`¡Acertijo resuelto! +${data.puntos} puntos`);
         abrirLibreta({ ok: true, texto: '¡Correcto!' });
       } else {
+        Sonido.error();
         log('Respuesta incorrecta');
         abrirLibreta({ ok: false, texto: '❌ Respuesta incorrecta. Revisa las pistas y razona de nuevo.' });
       }
@@ -527,8 +714,9 @@
         body: JSON.stringify({ respuestas, jugador_sala_id: rolActual.jugador_sala_id })
       });
       const data = await res.json();
-      if (!res.ok) { msg.className = 'err'; msg.innerText = data.error || 'Error'; return; }
+      if (!res.ok) { Sonido.error(); msg.className = 'err'; msg.innerText = data.error || 'Error'; return; }
       if (!data.correcto) {
+        Sonido.error();
         msg.className = 'err';
         msg.innerText = '❌ La puerta no se abre: alguna respuesta es incorrecta o falta. Revisen con su equipo.';
         log('La puerta rechazó el código');
@@ -569,20 +757,22 @@
       const restante = (finJuegoMs - Date.now()) / 1000;
       el.innerText = formatearTiempo(restante);
       el.style.color = restante <= 60 ? '#ff4757' : '#eccc68';
+      // el corazón late más rápido cuanto menos tiempo queda
+      Sonido.ritmo(restante < 120 ? 480 : restante < 300 ? 760 : 1150);
     }, 500);
   }
 
   function detenerJuego() {
     juegoTerminado = true;
     juegoActivo = false;
-    clearInterval(monitorInterval);
-    clearInterval(relojInterval);
-    clearInterval(loopInterval);
+    clearInterval(monitorInterval); clearInterval(relojInterval); clearInterval(loopInterval); clearInterval(eventosInterval);
+    Sonido.detenerAmbiente();
     cerrarPanel();
   }
   function mostrarFinExito() {
     if (juegoTerminado) return;
     detenerJuego();
+    Sonido.ok();
     document.getElementById('end-title').innerText = '¡ESCAPARON TODOS! 🎉';
     document.getElementById('end-msg').innerText = `Sala ${salaActual.codigo_acceso} — estado final: RESUELTO`;
     cambiarPantalla('screen-end');
@@ -590,12 +780,89 @@
   function mostrarFinFallo() {
     if (juegoTerminado) return;
     detenerJuego();
-    document.getElementById('end-title').innerText = '¡SE ACABÓ EL TIEMPO! 💀';
+    if (esTerror && sustosActivos) Sonido.susto(); else Sonido.error();
+    document.getElementById('end-title').innerText = esTerror ? '¡NO SALIERON... 💀' : '¡SE ACABÓ EL TIEMPO! 💀';
     document.getElementById('end-msg').innerText = `Sala ${salaActual.codigo_acceso} — estado final: FALLIDO`;
     cambiarPantalla('screen-end');
   }
 
-  // ============================================================ 7. MOTOR DEL JUEGO (plataformas)
+  // ============================================================ 7. EFECTOS DE TERROR
+  let susto = null, luzApagadaHasta = 0, sombra = null, ultimoPaso = 0;
+
+  function lanzarSusto() {
+    if (!esTerror || !sustosActivos || juegoTerminado) return;
+    const t = performance.now();
+    susto = { inicio: t, hasta: t + 1100, espejo: Math.random() < 0.5 };
+    Sonido.susto();
+  }
+
+  function iniciarEventosTerror() {
+    const t0 = performance.now();
+    let proximoSusto = t0 + 45000 + Math.random() * 40000;
+    let proximoParpadeo = t0 + 8000 + Math.random() * 8000;
+    let proximaSombra = t0 + 20000 + Math.random() * 20000;
+    eventosInterval = setInterval(() => {
+      if (!esTerror || juegoTerminado || !juegoActivo) return;
+      const t = performance.now();
+      if (t > proximoParpadeo) { luzApagadaHasta = t + 250 + Math.random() * 250; proximoParpadeo = t + 8000 + Math.random() * 14000; }
+      if (t > proximaSombra) {
+        sombra = { x: 100 + Math.random() * 700, hasta: t + 280 };
+        proximaSombra = t + 22000 + Math.random() * 25000;
+      }
+      // los sustos aleatorios nunca interrumpen mientras se escribe una respuesta
+      if (t > proximoSusto && !panelAbierto) { lanzarSusto(); proximoSusto = t + 55000 + Math.random() * 60000; }
+    }, 500);
+  }
+
+  function dibujarOscuridad(ctx, ahora) {
+    const cx = player.x + player.w / 2, cy = player.y + player.h / 2 - 4;
+    let r = 150 + Math.sin(ahora / 230) * 5;
+    if (ahora < luzApagadaHasta) r = 26 + Math.random() * 8;
+    const g = ctx.createRadialGradient(cx, cy, r * 0.22, cx, cy, r);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.55, 'rgba(0,0,0,0.35)');
+    g.addColorStop(1, 'rgba(0,0,0,0.9)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, WORLD.w, WORLD.h);
+  }
+
+  function dibujarSombra(ctx, ahora) {
+    if (!sombra) return;
+    if (ahora > sombra.hasta) { sombra = null; return; }
+    const x = sombra.x, y = WORLD.floorY - 70;
+    ctx.save(); ctx.globalAlpha = 0.28; ctx.fillStyle = '#dfe6e9';
+    ctx.fillRect(x + 6, y, 16, 16);            // cabeza
+    ctx.fillRect(x, y + 16, 28, 36);           // cuerpo
+    ctx.fillRect(x + 3, y + 52, 8, 18); ctx.fillRect(x + 17, y + 52, 8, 18);
+    ctx.fillStyle = '#000'; ctx.fillRect(x + 9, y + 5, 4, 5); ctx.fillRect(x + 16, y + 5, 4, 5);
+    ctx.restore();
+  }
+
+  // Cara del susto, dibujada con "píxeles" de 10x10
+  function dibujarSusto(ctx, ahora) {
+    if (!susto) return;
+    if (ahora > susto.hasta) { susto = null; return; }
+    const t = (ahora - susto.inicio) / (susto.hasta - susto.inicio);
+    const P = 10, cx = WORLD.w / 2, top = 28;
+    ctx.save();
+    const temblor = (1 - t) * 12;
+    ctx.translate((Math.random() - 0.5) * temblor, (Math.random() - 0.5) * temblor);
+    ctx.fillStyle = `rgba(105,0,0,${0.92 - t * 0.45})`; ctx.fillRect(-20, -20, WORLD.w + 40, WORLD.h + 40);
+    const k = 1 + t * 0.18;
+    ctx.translate(cx, WORLD.h / 2); ctx.scale(k * (susto.espejo ? -1 : 1), k); ctx.translate(-cx, -WORLD.h / 2);
+    const celda = (c, r, col) => { ctx.fillStyle = col; ctx.fillRect(cx + c * P - 0.4, top + r * P - 0.4, P + 0.8, P + 0.8); };
+    const hw = [6, 8, 9, 10, 11, 11, 12, 12, 12, 12, 12, 12, 12, 12, 12, 11, 11, 10, 10, 9, 9, 9, 8, 8, 8, 7, 7, 6, 5, 4];
+    for (let r = 0; r < hw.length; r++) for (let c = -hw[r]; c < hw[r]; c++) celda(c, r, Math.abs(c + 0.5) > hw[r] - 3 ? '#9c978a' : '#e3ded0');
+    for (let r = 7; r <= 15; r++) for (let c = 0; c < 6; c++) { celda(-9 + c, r, '#000'); celda(3 + c, r, '#000'); }
+    for (const [c, r] of [[-7, 11], [-6, 11], [-7, 12], [-6, 12], [5, 11], [4, 11], [5, 12], [4, 12]]) celda(c, r, '#ff1a1a');
+    for (let r = 17; r <= 19; r++) { celda(-2, r, '#2a2520'); celda(1, r, '#2a2520'); }
+    for (let r = 22; r <= 27; r++) { const a = (r === 22 || r === 27) ? -6 : -7, b = (r === 22 || r === 27) ? 5 : 6; for (let c = a; c <= b; c++) celda(c, r, '#050000'); }
+    for (let c = -6; c <= 5; c++) if (((c + 6) & 1) === 0) { celda(c, 22, '#ece7d6'); celda(c, 23, '#ece7d6'); celda(c, 26, '#ece7d6'); celda(c, 27, '#ece7d6'); }
+    for (const [c, r] of [[-3, 1], [-3, 2], [-2, 3], [5, 2], [5, 3], [6, 4], [-6, 18], [-6, 19], [6, 19], [6, 20]]) celda(c, r, '#6b665a');
+    ctx.restore();
+  }
+
+  // ============================================================ 8. MOTOR DEL JUEGO (plataformas)
   function actualizar(dt) {
     let dir = 0;
     if (!panelAbierto) {
@@ -615,7 +882,6 @@
     player.x = Math.max(0, Math.min(WORLD.w - player.w, player.x));
     if (player.y < 0) { player.y = 0; player.vy = 0; }
 
-    // Las plataformas son "de un solo sentido": se atraviesan subiendo y se pisan al caer.
     player.onGround = false;
     if (player.vy >= 0) {
       const fondoAhora = player.y + player.h;
@@ -648,6 +914,8 @@
   }
 
   // ------------------------------------------------------------ dibujo
+  const fuenteTexto = tam => `${tam}px "VT323", monospace`;
+
   function dibujarEmoji(ctx, simbolo, cx, cy, tam) {
     ctx.font = `${tam}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
     ctx.textAlign = 'center';
@@ -655,8 +923,8 @@
     ctx.fillText(simbolo, cx, cy);
   }
 
-  function dibujarTexto(ctx, texto, x, y, color, tam, alinear) {
-    ctx.font = `${tam}px "Press Start 2P", monospace`;
+  function dibujarTexto(ctx, texto, x, y, color, tam, alinear, pixel) {
+    ctx.font = pixel ? `${tam}px "Press Start 2P", monospace` : fuenteTexto(tam);
     ctx.textAlign = alinear || 'left';
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = color;
@@ -671,15 +939,12 @@
     ctx.translate(player.x + player.w / 2, player.y);
     ctx.scale(player.facing, 1);
     const ox = -player.w / 2;
-    const color = COLOR_ROL[rolActual ? rolActual.id : 1] || '#70a1ff';
-    // cabeza y pelo
+    const color = COLOR_ROL[((rolActual ? rolActual.id : 1) - 1) % 6 + 1] || '#70a1ff';
     ctx.fillStyle = '#f7c9a3'; ctx.fillRect(ox + 6, 0, 16, 14);
     ctx.fillStyle = '#4b3b2a'; ctx.fillRect(ox + 6, 0, 16, 4);
     ctx.fillStyle = '#000'; ctx.fillRect(ox + 13, 6, 3, 3); ctx.fillRect(ox + 18, 6, 3, 3);
-    // cuerpo y brazos
     ctx.fillStyle = color; ctx.fillRect(ox + 4, 14, 20, 16);
     ctx.fillRect(ox, enAire ? 12 : 16, 4, 12); ctx.fillRect(ox + 24, enAire ? 12 : 16, 4, 12);
-    // piernas
     ctx.fillStyle = '#2f3640';
     if (enAire || paso === 1) { ctx.fillRect(ox + 4, 30, 6, 12); ctx.fillRect(ox + 18, 30, 6, 12); }
     else { ctx.fillRect(ox + 8, 30, 6, 12); ctx.fillRect(ox + 14, 30, 6, 12); }
@@ -687,7 +952,7 @@
   }
 
   function dibujar(ctx, ahora) {
-    const th = THEMES[escena ? escena.etapa.numero_etapa : 1] || THEMES[1];
+    const th = temaActual;
     const g = ctx.createLinearGradient(0, 0, 0, WORLD.h);
     g.addColorStop(0, th.top); g.addColorStop(1, th.bottom);
     ctx.fillStyle = g; ctx.fillRect(0, 0, WORLD.w, WORLD.h);
@@ -704,50 +969,61 @@
       ctx.fillStyle = th.edge; ctx.fillRect(p.x, p.y, p.w, 3);
     });
 
-    pistas.forEach(o => {
-      const visto = notas.some(n => n.id === o.id);
-      dibujarEmoji(ctx, icono(o.icono), o.x + o.w / 2, o.y + o.h / 2, 26);
-      if (visto) dibujarTexto(ctx, '✓', o.x + o.w / 2, o.y - 3, '#2ed573', 10, 'center');
-      else dibujarTexto(ctx, '!', o.x + o.w / 2, o.y - 3 + Math.sin(ahora / 250) * 3, '#eccc68', 12, 'center');
-    });
+    pistas.forEach(o => dibujarEmoji(ctx, icono(o.icono), o.x + o.w / 2, o.y + o.h / 2, 26));
 
     if (puerta) {
       ctx.fillStyle = th.puerta; ctx.fillRect(puerta.x - 4, puerta.y - 4, puerta.w + 8, puerta.h + 4);
       ctx.fillStyle = '#000'; ctx.fillRect(puerta.x, puerta.y, puerta.w, puerta.h);
       ctx.fillStyle = '#ff4757'; ctx.fillRect(puerta.x + puerta.w - 12, puerta.y + puerta.h / 2, 6, 6);
-      dibujarTexto(ctx, 'SALIDA', puerta.x + puerta.w / 2, puerta.y - 10, '#ff4757', 8, 'center');
     }
 
     dibujarJugador(ctx, ahora);
+
+    // En los juegos de terror el cuarto queda a oscuras: solo se ve lo que alumbra la linterna
+    if (esTerror) dibujarOscuridad(ctx, ahora);
+
+    // marcas "!" y etiqueta de la salida (se ven aun en la oscuridad)
+    pistas.forEach(o => {
+      const visto = notas.some(n => n.id === o.id);
+      if (visto) dibujarTexto(ctx, '✓', o.x + o.w / 2, o.y - 2, '#2ed573', 22, 'center');
+      else dibujarTexto(ctx, '!', o.x + o.w / 2, o.y - 2 + Math.sin(ahora / 250) * 3, '#eccc68', 26, 'center');
+    });
+    if (puerta) dibujarTexto(ctx, 'SALIDA', puerta.x + puerta.w / 2, puerta.y - 10, '#ff4757', 22, 'center');
+
+    if (esTerror) dibujarSombra(ctx, ahora);
 
     // aviso de interacción
     const cerca = !panelAbierto ? objetoCercano() : null;
     if (cerca) {
       const txt = cerca.tipo === 'PUERTA' ? 'E: ABRIR PUERTA' : 'E: EXAMINAR ' + cerca.nombre.toUpperCase();
-      const ancho = txt.length * 9 + 12;
+      ctx.font = fuenteTexto(22);
+      const ancho = ctx.measureText(txt).width + 16;
       let bx = cerca.x + cerca.w / 2 - ancho / 2;
       bx = Math.max(4, Math.min(WORLD.w - ancho - 4, bx));
-      const by = Math.max(24, cerca.y - 40);
-      ctx.fillStyle = 'rgba(0,0,0,0.85)'; ctx.fillRect(bx, by - 14, ancho, 20);
-      dibujarTexto(ctx, txt, bx + ancho / 2, by, '#eccc68', 8, 'center');
+      const by = Math.max(54, cerca.y - 44);
+      ctx.fillStyle = 'rgba(0,0,0,0.88)'; ctx.fillRect(bx, by - 20, ancho, 28);
+      dibujarTexto(ctx, txt, bx + ancho / 2, by, '#eccc68', 22, 'center');
     }
 
     // HUD
-    dibujarTexto(ctx, `ETAPA ${escena.etapa.numero_etapa}/${escena.total_etapas}: ${escena.etapa.titulo_etapa}`, 10, 16, '#fff', 8, 'left');
+    dibujarTexto(ctx, `ETAPA ${escena.etapa.numero_etapa}/${escena.total_etapas}: ${escena.etapa.titulo_etapa}`, 10, 20, '#ffffff', 24, 'left');
     const resuelto = escena.acertijo && escena.acertijo.resuelto;
-    dibujarTexto(ctx, resuelto ? 'TU ACERTIJO: RESUELTO (A LA ESPERA DEL EQUIPO)' : 'TU ACERTIJO: PENDIENTE', 10, 30, resuelto ? '#2ed573' : '#ffa502', 8, 'left');
-    dibujarTexto(ctx, 'Q = LIBRETA', WORLD.w - 10, 16, '#70a1ff', 8, 'right');
+    dibujarTexto(ctx, resuelto ? 'TU ACERTIJO: RESUELTO (esperando al equipo)' : 'TU ACERTIJO: PENDIENTE', 10, 42, resuelto ? '#2ed573' : '#ffa502', 22, 'left');
+    dibujarTexto(ctx, `Q: libreta   M: sonido ${Sonido.silenciado() ? 'OFF' : 'ON'}`, WORLD.w - 10, 20, '#70a1ff', 22, 'right');
 
     if (banner && ahora < banner.hasta) {
-      ctx.fillStyle = 'rgba(0,0,0,0.8)'; ctx.fillRect(WORLD.w / 2 - 330, 120, 660, 70);
-      dibujarTexto(ctx, banner.texto, WORLD.w / 2, 162, '#eccc68', 14, 'center');
+      ctx.fillStyle = 'rgba(0,0,0,0.82)'; ctx.fillRect(WORLD.w / 2 - 340, 110, 680, 76);
+      dibujarTexto(ctx, banner.texto, WORLD.w / 2, 156, '#eccc68', 15, 'center', true);
     }
+
+    dibujarSusto(ctx, ahora);
   }
 
   let bucleIniciado = false;
   function iniciarJuegoCanvas() {
     if (bucleIniciado) return;
     bucleIniciado = true;
+    if (document.fonts && document.fonts.load) { document.fonts.load('22px "VT323"'); document.fonts.load('15px "Press Start 2P"'); }
     const ctx = document.getElementById('gameCanvas').getContext('2d');
     let ultimo = performance.now();
     function bucle(ahora) {
@@ -755,6 +1031,7 @@
       const dt = Math.min((ahora - ultimo) / 16.667, 2.5);
       ultimo = ahora;
       actualizar(dt);
+      if (esTerror && !panelAbierto && player.onGround && Math.abs(player.vx) > 0.1 && ahora - ultimoPaso > 330) { ultimoPaso = ahora; Sonido.paso(); }
       dibujar(ctx, ahora);
       requestAnimationFrame(bucle);
     }

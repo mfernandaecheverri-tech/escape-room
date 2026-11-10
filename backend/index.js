@@ -286,7 +286,7 @@ app.get('/api/salas/:id/escena', async (req, res) => {
     );
 
     const [objetos] = await pool.query(
-      `SELECT id, tipo, nombre, icono, x, y, ancho, alto, texto
+      `SELECT id, tipo, nombre, icono, x, y, ancho, alto, texto, efecto
        FROM objetos_etapa
        WHERE etapa_id = ? AND (rol_juego_id IS NULL OR rol_juego_id = ?)
        ORDER BY id ASC`,
@@ -306,7 +306,10 @@ app.get('/api/salas/:id/escena', async (req, res) => {
       acertijo = { ...acertijos[0], resuelto: prog.length > 0 };
     }
 
-    res.json({ etapa, total_etapas, objetos, acertijo });
+    const [juegoRows] = await pool.query('SELECT ambiente FROM juegos WHERE id = ?', [ctx.juego_id]);
+    const ambiente = juegoRows[0] ? juegoRows[0].ambiente : 'normal';
+
+    res.json({ etapa, total_etapas, objetos, acertijo, ambiente });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -465,6 +468,9 @@ app.get('/api/salas/:salaId/inventario/:usuarioId', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Panel CRUD (protegido con ADMIN_KEY)
+require('./admin')(app, pool);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Servidor corriendo en puerto ${PORT}`));
