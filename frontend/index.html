@@ -25,6 +25,11 @@
     .inv-slot { display: inline-block; width: 46px; height: 46px; border: 2px dashed #4a4a68; margin: 4px; vertical-align: top; text-align: center; line-height: 42px; font-size: 22px; }
     .inv-slot.lleno { border-style: solid; border-color: #eccc68; }
     a.enlace { color: #70a1ff; font-size: 22px; margin-top: 14px; }
+    #google-boton { min-height: 44px; display: flex; justify-content: center; margin: 6px 0; }
+    .separador { color: #8795a1; font-size: 22px; margin: 10px 0 2px; }
+    #auth-msg { min-height: 26px; font-size: 22px; margin: 6px 0; }
+    #bloque-invitado input { width: 300px; margin: 6px; }
+    .saludo { color: #2ed573; font-size: 26px; margin-bottom: 4px; }
 
     /* Panel flotante (pistas, libreta, puerta) */
     #panel { display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 820px; max-height: 440px;
@@ -57,19 +62,22 @@
 
   <div id="main-stage" style="flex:1; position:relative;">
 
-    <!-- PANTALLA 1: LOGIN -->
+    <!-- PANTALLA 1: ACCESO (Google / invitado) -->
     <div id="screen-auth" class="screen active">
-      <h2 style="color:#ff4757; font-size:18px; margin-bottom:15px;">INICIAR SESIÓN</h2>
-      <input type="text" id="auth-username" placeholder="Tu Usuario (Ej: carlos_pro)" value="carlos_pro">
-      <div>
-        <button class="btn-pixel green" onclick="iniciarSesion()">ENTRAR</button>
-        <button class="btn-pixel" onclick="registrarUsuario()">REGISTRARSE</button>
+      <h2 style="color:#ff4757; font-size:18px; margin-bottom:12px;">ENTRAR AL JUEGO</h2>
+      <div id="google-boton"></div>
+      <p id="auth-msg" style="color:#a4b0be;">Conectando...</p>
+      <div id="bloque-invitado" style="display:none;">
+        <p class="separador">— o juega sin cuenta —</p>
+        <input type="text" id="guest-nombre" placeholder="Tu apodo (ej: Maria)" maxlength="20" onkeydown="if(event.key==='Enter')entrarComoInvitado()">
+        <div><button class="btn-pixel gris" onclick="entrarComoInvitado()">ENTRAR COMO INVITADO</button></div>
       </div>
       <a class="enlace" href="admin.html">Panel de administración (CRUD)</a>
     </div>
 
     <!-- PANTALLA 2: LOBBY -->
     <div id="screen-lobby-select" class="screen">
+      <p id="lobby-saludo" class="saludo"></p>
       <h3 style="margin-bottom:10px; font-size:14px;">SELECCIONA UN JUEGO</h3>
       <select id="select-juegos" onchange="actualizarAvisoJuego()"><option value="">Cargando juegos de BD...</option></select>
       <p id="aviso-terror" class="aviso-terror" style="display:none;">⚠ Este juego contiene sustos y sonidos fuertes.</p>
@@ -81,6 +89,7 @@
       <div>
         <button class="btn-pixel" onclick="unirseASalaLobby()">UNIRSE A SALA</button>
       </div>
+      <button class="btn-pixel gris" style="font-size:10px;" onclick="cerrarSesion()">CERRAR SESIÓN</button>
     </div>
 
     <!-- PANTALLA 3: SALA DE ESPERA -->
@@ -339,7 +348,7 @@
   // ============================================================ 1. JUEGOS
   async function cargarJuegos() {
     try {
-      const res = await fetch(`${API_URL}/api/juegos`);
+      const res = await apiFetch(`/api/juegos`);
       juegosCache = await res.json();
       const select = document.getElementById('select-juegos');
       if (!juegosCache || juegosCache.length === 0) {
@@ -363,40 +372,130 @@
     document.getElementById('aviso-terror').style.display = (j && j.ambiente === 'terror') ? 'block' : 'none';
   }
 
-  // ============================================================ 2. AUTENTICACIÓN
-  async function iniciarSesion() {
-    const username = document.getElementById('auth-username').value.trim();
-    if (!username) return alert('Ingresa un usuario');
+  // ============================================================ 2. AUTENTICACIÓN (Google + invitado)
+  // El navegador solo guarda la SESIÓN que entrega el servidor. El servidor ya no confía en
+  // ningún id de usuario que envíe el navegador: siempre usa el de la sesión.
+  let sesionToken = null;
+  const CLAVE_SESION = 'er_sesion';
+
+  async function apiFetch(ruta, opciones = {}) {
+    const headers = { ...(opciones.headers || {}) };
+    if (opciones.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+    if (sesionToken) headers['Authorization'] = 'Bearer ' + sesionToken;
+    const res = await fetch(`${API_URL}${ruta}`, { ...opciones, headers });
+    if (res.status === 401 && sesionToken && !ruta.startsWith('/api/auth/')) cerrarSesion('Tu sesión venció. Inicia sesión de nuevo.');
+    return res;
+  }
+
+  function mensajeAuth(texto, esError) {
+    const el = document.getElementById('auth-msg');
+    el.innerText = texto || '';
+    el.style.color = esError ? '#ff6b6b' : '#a4b0be';
+  }
+  function guardarSesion(token, usuario) {
+    sesionToken = token;
+    try { localStorage.setItem(CLAVE_SESION, JSON.stringify({ token, usuario })); } catch (e) {}
+  }
+  function leerSesion() {
+    try { return JSON.parse(localStorage.getItem(CLAVE_SESION) || 'null'); } catch (e) { return null; }
+  }
+  function cerrarSesion(aviso) {
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        usuarioActual = data.usuario;
-        document.getElementById('lbl-user').innerText = usuarioActual.username;
-        log(`Sesión iniciada como: ${usuarioActual.username}`);
-        await cargarJuegos();
-        cambiarPantalla('screen-lobby-select');
-      } else {
-        alert(data.error || 'Error al iniciar sesión');
-      }
+      localStorage.removeItem(CLAVE_SESION);
+      if (aviso) sessionStorage.setItem('er_aviso', aviso);
+    } catch (e) {}
+    try { if (window.google && google.accounts && google.accounts.id) google.accounts.id.disableAutoSelect(); } catch (e) {}
+    location.reload();
+  }
+
+  function cargarScriptGoogle() {
+    return new Promise((ok, fail) => {
+      if (window.google && google.accounts && google.accounts.id) return ok();
+      const sc = document.createElement('script');
+      sc.src = 'https://accounts.google.com/gsi/client';
+      sc.async = true; sc.defer = true;
+      sc.onload = ok; sc.onerror = () => fail(new Error('No se pudo cargar Google'));
+      document.head.appendChild(sc);
+    });
+  }
+
+  async function iniciarAutenticacion() {
+    const aviso = sessionStorage.getItem('er_aviso');
+    if (aviso) sessionStorage.removeItem('er_aviso');
+
+    // El servidor gratuito de Render se duerme: reintentamos hasta ~1 minuto
+    let cfg = null;
+    for (let i = 0; i < 20 && !cfg; i++) {
+      try { const r = await fetch(`${API_URL}/api/auth/config`); if (r.ok) cfg = await r.json(); } catch (e) {}
+      if (!cfg) { mensajeAuth('Conectando con el servidor... (si estaba dormido puede tardar hasta 1 minuto)'); await new Promise(r => setTimeout(r, 3000)); }
+    }
+    if (!cfg) return mensajeAuth('No se pudo contactar con el servidor. Recarga la página en un momento.', true);
+
+    // ¿Ya había una sesión guardada?
+    const guardada = leerSesion();
+    if (guardada && guardada.token) {
+      sesionToken = guardada.token;
+      const r = await apiFetch('/api/auth/yo');
+      if (r.ok) { const d = await r.json(); return entrarAlLobby(d.usuario); }
+      sesionToken = null;
+      try { localStorage.removeItem(CLAVE_SESION); } catch (e) {}
+    }
+
+    mensajeAuth(aviso || '', !!aviso);
+    document.getElementById('bloque-invitado').style.display = cfg.invitados ? 'block' : 'none';
+    const cont = document.getElementById('google-boton');
+    if (!cfg.googleClientId) {
+      cont.innerHTML = '<span style="color:#ffa502;font-size:22px;">El acceso con Google aún no está configurado.</span>';
+      return;
+    }
+    try {
+      await cargarScriptGoogle();
+      google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: respuestaGoogle, auto_select: false });
+      google.accounts.id.renderButton(cont, { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'rectangular', locale: 'es', width: 300 });
     } catch (e) {
-      log('Error de conexión: ' + e.message);
-      alert('Error al conectar con la API: ' + e.message);
+      cont.innerHTML = '<span style="color:#ff6b6b;font-size:22px;">No se pudo cargar Google. Revisa tu conexión' + (cfg.invitados ? ' o entra como invitado.' : '.') + '</span>';
     }
   }
 
-  async function registrarUsuario() {
-    const username = document.getElementById('auth-username').value.trim();
-    if (!username) return alert('Ingresa un usuario');
+  async function respuestaGoogle(resp) {
+    mensajeAuth('Verificando tu cuenta de Google...');
     try {
-      const res = await fetch(`${API_URL}/api/auth/registro`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username })
+      const res = await fetch(`${API_URL}/api/auth/google`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: resp.credential })
       });
-      if (res.ok) { alert('Usuario registrado con éxito. Haz clic en ENTRAR.'); }
-      else { const data = await res.json(); alert(data.error); }
-    } catch (e) { alert('Error al registrar: ' + e.message); }
+      const data = await res.json();
+      if (!res.ok) return mensajeAuth(data.error || 'No se pudo iniciar sesión con Google.', true);
+      guardarSesion(data.token, data.usuario);
+      log(data.nuevo ? `¡Cuenta creada! Bienvenido/a, ${data.usuario.username}` : `Sesión iniciada como ${data.usuario.username}`);
+      entrarAlLobby(data.usuario);
+    } catch (e) {
+      mensajeAuth('Error de conexión: ' + e.message, true);
+    }
+  }
+
+  async function entrarComoInvitado() {
+    const nombre = document.getElementById('guest-nombre').value.trim();
+    if (!nombre) return mensajeAuth('Escribe un apodo para jugar.', true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/invitado`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre })
+      });
+      const data = await res.json();
+      if (!res.ok) return mensajeAuth(data.error || 'No se pudo entrar como invitado.', true);
+      guardarSesion(data.token, data.usuario);
+      log(`Entraste como invitado: ${data.usuario.username}`);
+      entrarAlLobby(data.usuario);
+    } catch (e) {
+      mensajeAuth('Error de conexión: ' + e.message, true);
+    }
+  }
+
+  async function entrarAlLobby(usuario) {
+    usuarioActual = usuario;
+    document.getElementById('lbl-user').innerText = usuario.username;
+    document.getElementById('lobby-saludo').innerText = `Hola, ${usuario.username}`;
+    await cargarJuegos();
+    cambiarPantalla('screen-lobby-select');
   }
 
   // ============================================================ 3. SALAS
@@ -405,9 +504,9 @@
     if (!usuarioActual || !usuarioActual.id) return alert('Vuelve a iniciar sesión.');
     if (!juego_id) return alert('Selecciona un juego válido de la lista');
     try {
-      const res = await fetch(`${API_URL}/api/salas/crear`, {
+      const res = await apiFetch(`/api/salas/crear`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ juego_id: parseInt(juego_id), anfitrion_id: usuarioActual.id })
+        body: JSON.stringify({ juego_id: parseInt(juego_id) })
       });
       const data = await res.json();
       if (res.ok) {
@@ -426,9 +525,9 @@
     const codigo_acceso = document.getElementById('join-codigo').value.trim().toUpperCase();
     if (!codigo_acceso) return alert('Ingresa el código de sala');
     try {
-      const res = await fetch(`${API_URL}/api/salas/unirse`, {
+      const res = await apiFetch(`/api/salas/unirse`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ codigo_acceso, usuario_id: usuarioActual.id })
+        body: JSON.stringify({ codigo_acceso })
       });
       const data = await res.json();
       if (!res.ok) return alert(data.error);
@@ -476,7 +575,7 @@
 
     const consultar = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/jugadores`);
+        const res = await apiFetch(`/api/salas/${salaActual.id}/jugadores`);
         const jugadores = await res.json();
         document.getElementById('lista-jugadores').innerHTML =
           jugadores.map(j => `<li>👾 ${esc(j.username)} - ${esc((j.nombre_rol || '').toUpperCase())}</li>`).join('');
@@ -493,7 +592,7 @@
           msgMin.style.color = '#ff6b81';
         }
 
-        const resEstado = await fetch(`${API_URL}/api/salas/${salaActual.id}/estado`);
+        const resEstado = await apiFetch(`/api/salas/${salaActual.id}/estado`);
         const est = await resEstado.json();
         if (est.estado === 'EN_PROGRESO') entrarAlJuego();
       } catch (e) {}
@@ -504,7 +603,7 @@
 
   async function solicitarInicioJuego() {
     try {
-      const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/iniciar`, { method: 'PUT' });
+      const res = await apiFetch(`/api/salas/${salaActual.id}/iniciar`, { method: 'PUT' });
       if (res.ok) entrarAlJuego();
       else { const data = await res.json(); alert(data.error); }
     } catch (e) {
@@ -547,7 +646,7 @@
     if (cargandoEscena) return;
     cargandoEscena = true;
     try {
-      const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/escena?jugador_sala_id=${rolActual.jugador_sala_id}`);
+      const res = await apiFetch(`/api/salas/${salaActual.id}/escena?jugador_sala_id=${rolActual.jugador_sala_id}`);
       const data = await res.json();
       if (!res.ok) { log('⚠️ ' + (data.error || 'No se pudo cargar la etapa')); return; }
 
@@ -660,7 +759,7 @@
     const valor = inp.value.trim();
     if (!valor) return;
     try {
-      const res = await fetch(`${API_URL}/api/acertijos/${escena.acertijo.id}/verificar`, {
+      const res = await apiFetch(`/api/acertijos/${escena.acertijo.id}/verificar`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ respuesta: valor, jugador_sala_id: rolActual.jugador_sala_id })
       });
@@ -685,7 +784,7 @@
   async function abrirPanelPuerta() {
     let equipo = [];
     try {
-      const r = await fetch(`${API_URL}/api/salas/${salaActual.id}/equipo`);
+      const r = await apiFetch(`/api/salas/${salaActual.id}/equipo`);
       equipo = await r.json();
     } catch (e) { log('Error al cargar el equipo: ' + e.message); }
 
@@ -709,7 +808,7 @@
     document.querySelectorAll('.in-puerta').forEach(i => { respuestas[i.dataset.rol] = i.value.trim(); });
     const msg = document.getElementById('panel-msg');
     try {
-      const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/puerta`, {
+      const res = await apiFetch(`/api/salas/${salaActual.id}/puerta`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ respuestas, jugador_sala_id: rolActual.jugador_sala_id })
       });
@@ -739,7 +838,7 @@
   function iniciarMonitorSala() {
     const consultar = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/salas/${salaActual.id}/estado`);
+        const res = await apiFetch(`/api/salas/${salaActual.id}/estado`);
         const data = await res.json();
         if (data.segundos_restantes !== null && data.segundos_restantes !== undefined) {
           finJuegoMs = Date.now() + Number(data.segundos_restantes) * 1000;
@@ -1037,6 +1136,8 @@
     }
     requestAnimationFrame(bucle);
   }
+
+  iniciarAutenticacion();
 </script>
 </body>
 </html>

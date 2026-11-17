@@ -14,13 +14,16 @@ app.get('/', (req, res) => {
   res.json({ ok: true, servicio: 'API Escape Room' });
 });
 
+// Autenticación (Google + invitado + sesiones). Ver auth.js
+const { requiereSesion } = require('./auth')(app, pool);
+
 // ---------------------------------------------------------------- utilidades
 const normalizar = (v) => String(v ?? '').replace(/\s+/g, '').toLowerCase();
 
 // Datos del jugador + su sala (para validar que quien pregunta de verdad juega ahí)
 async function contextoJugador(jugadorSalaId) {
   const [rows] = await pool.query(
-    `SELECT js.id AS jugador_sala_id, js.sala_id, js.rol_juego_id,
+    `SELECT js.id AS jugador_sala_id, js.sala_id, js.rol_juego_id, js.usuario_id,
             s.estado, s.etapa_actual, s.juego_id
      FROM jugadores_sala js
      JOIN salas s ON js.sala_id = s.id
@@ -29,6 +32,17 @@ async function contextoJugador(jugadorSalaId) {
   );
   return rows[0] || null;
 }
+
+// ¿Este usuario pertenece a la sala?
+async function esMiembro(salaId, usuarioId) {
+  const [r] = await pool.query(
+    'SELECT id FROM jugadores_sala WHERE sala_id = ? AND usuario_id = ?', [salaId, usuarioId]
+  );
+  return r.length > 0;
+}
+
+// El jugador_sala_id debe ser de QUIEN hace la petición (evita hacerse pasar por otro jugador)
+const esMio = (ctx, req) => !!ctx && Number(ctx.usuario_id) === Number(req.usuario.id);
 
 // Anti fuerza bruta: máximo un intento fallido cada 3 segundos por jugador
 async function demasiadosIntentos(jugadorSalaId) {
@@ -47,32 +61,6 @@ async function registrarAccion(salaId, jugadorSalaId, descripcion, exitoso) {
     [salaId, jugadorSalaId, descripcion, exitoso]
   );
 }
-
-// ---------------------------------------------------------------- auth
-app.post('/api/auth/login', async (req, res) => {
-  const { username } = req.body;
-  try {
-    const [rows] = await pool.query('SELECT * FROM usuarios WHERE username = ?', [username]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json({ usuario: rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/auth/registro', async (req, res) => {
-  const { username } = req.body;
-  try {
-    const email = `${username}@gmail.com`;
-    const [result] = await pool.query(
-      'INSERT INTO usuarios (username, email, proveedor_auth_id, proveedor_uid) VALUES (?, ?, 1, ?)',
-      [username, email, `sub_${username}`]
-    );
-    res.json({ id: result.insertId, username });
-  } catch (err) {
-    res.status(400).json({ error: 'El usuario ya existe o hubo un problema al crearlo.' });
-  }
-});
 
 // ---------------------------------------------------------------- juegos
 app.get('/api/juegos', async (req, res) => {
@@ -94,8 +82,9 @@ app.get('/api/juegos/:id/roles', async (req, res) => {
 });
 
 // ---------------------------------------------------------------- salas
-app.post('/api/salas/crear', async (req, res) => {
-  const { juego_id, anfitrion_id } = req.body;
+app.post('/api/salas/crear', requiereSesion, async (req, res) => {
+  const { juego_id } = req.body;
+  const anfitrion_id = req.usuario.id;
   try {
     for (let intento = 0; intento < 6; intento++) {
       const codigo = 'LAB' + Math.floor(1000 + Math.random() * 9000);
@@ -115,8 +104,9 @@ app.post('/api/salas/crear', async (req, res) => {
   }
 });
 
-app.post('/api/salas/unirse', async (req, res) => {
-  const { codigo_acceso, usuario_id } = req.body;
+app.post('/api/salas/unirse', requiereSesion, async (req, res) => {
+  const { codigo_acceso } = req.body;
+  const usuario_id = req.usuario.id;
   try {
     const [salas] = await pool.query('SELECT * FROM salas WHERE codigo_acceso = ?', [codigo_acceso]);
     if (salas.length === 0) return res.status(404).json({ error: 'Sala no encontrada' });
@@ -192,8 +182,9 @@ app.post('/api/salas/unirse', async (req, res) => {
   }
 });
 
-app.get('/api/salas/:id/jugadores', async (req, res) => {
+app.get('/api/salas/:id/jugadores', requiereSesion, async (req, res) => {
   try {
+    if (!(await esMiembro(req.params.id, req.usuario.id))) return res.status(403).json({ error: 'No perteneces a esta sala.' });
     const [rows] = await pool.query(
       `SELECT js.*, u.username, r.nombre_rol
        FROM jugadores_sala js
@@ -209,13 +200,16 @@ app.get('/api/salas/:id/jugadores', async (req, res) => {
   }
 });
 
-app.put('/api/salas/:id/iniciar', async (req, res) => {
+app.put('/api/salas/:id/iniciar', requiereSesion, async (req, res) => {
   try {
     const [salas] = await pool.query(
-      'SELECT s.estado, j.min_jugadores FROM salas s JOIN juegos j ON s.juego_id = j.id WHERE s.id = ?',
+      'SELECT s.estado, s.anfitrion_id, j.min_jugadores FROM salas s JOIN juegos j ON s.juego_id = j.id WHERE s.id = ?',
       [req.params.id]
     );
     if (salas.length === 0) return res.status(404).json({ error: 'Sala no encontrada' });
+    if (Number(salas[0].anfitrion_id) !== Number(req.usuario.id)) {
+      return res.status(403).json({ error: 'Solo el anfitrión puede iniciar el juego.' });
+    }
 
     // Si ya estaba iniciada (o terminada) no se toca: así el cronómetro no se reinicia.
     if (salas[0].estado !== 'EN_ESPERA') return res.json({ status: 'ok', estado: salas[0].estado });
@@ -238,8 +232,9 @@ app.put('/api/salas/:id/iniciar', async (req, res) => {
 });
 
 // Estado de la sala: etapa, tiempo restante, y marca FALLIDO si se acabó el tiempo.
-app.get('/api/salas/:id/estado', async (req, res) => {
+app.get('/api/salas/:id/estado', requiereSesion, async (req, res) => {
   try {
+    if (!(await esMiembro(req.params.id, req.usuario.id))) return res.status(403).json({ error: 'No perteneces a esta sala.' });
     const [rows] = await pool.query(
       `SELECT s.id, s.estado, s.etapa_actual, j.tiempo_limite_minutos,
               CASE WHEN s.fecha_inicio IS NULL THEN NULL
@@ -267,10 +262,10 @@ app.get('/api/salas/:id/estado', async (req, res) => {
 
 // Escena de la etapa actual SEGÚN EL ROL del jugador: plataformas y decorado
 // para todos, pero las pistas solo del rol dueño. Nunca se envía la respuesta.
-app.get('/api/salas/:id/escena', async (req, res) => {
+app.get('/api/salas/:id/escena', requiereSesion, async (req, res) => {
   try {
     const ctx = await contextoJugador(req.query.jugador_sala_id);
-    if (!ctx || String(ctx.sala_id) !== String(req.params.id)) {
+    if (!esMio(ctx, req) || String(ctx.sala_id) !== String(req.params.id)) {
       return res.status(403).json({ error: 'Jugador no válido para esta sala.' });
     }
 
@@ -316,8 +311,9 @@ app.get('/api/salas/:id/escena', async (req, res) => {
 });
 
 // Equipo de la sala (en orden de rol) y quién ya resolvió su acertijo de la etapa actual
-app.get('/api/salas/:id/equipo', async (req, res) => {
+app.get('/api/salas/:id/equipo', requiereSesion, async (req, res) => {
   try {
+    if (!(await esMiembro(req.params.id, req.usuario.id))) return res.status(403).json({ error: 'No perteneces a esta sala.' });
     const [rows] = await pool.query(
       `SELECT js.rol_juego_id, rj.nombre_rol, u.username,
               EXISTS(
@@ -340,12 +336,15 @@ app.get('/api/salas/:id/equipo', async (req, res) => {
   }
 });
 
-app.put('/api/salas/:id/finalizar', async (req, res) => {
+app.put('/api/salas/:id/finalizar', requiereSesion, async (req, res) => {
   const { estado } = req.body; // 'RESUELTO' o 'FALLIDO'
   if (!['RESUELTO', 'FALLIDO'].includes(estado)) {
     return res.status(400).json({ error: 'Estado inválido' });
   }
   try {
+    const [sala] = await pool.query('SELECT anfitrion_id FROM salas WHERE id = ?', [req.params.id]);
+    if (sala.length === 0) return res.status(404).json({ error: 'Sala no encontrada' });
+    if (Number(sala[0].anfitrion_id) !== Number(req.usuario.id)) return res.status(403).json({ error: 'Solo el anfitrión puede hacer esto.' });
     await pool.query('UPDATE salas SET estado = ?, fecha_fin = NOW() WHERE id = ?', [estado, req.params.id]);
     res.json({ status: 'ok', estado });
   } catch (err) {
@@ -355,12 +354,12 @@ app.put('/api/salas/:id/finalizar', async (req, res) => {
 
 // ---------------------------------------------------------------- acertijos
 // Acertijo PERSONAL: solo se puede resolver el de tu rol en la etapa actual.
-app.post('/api/acertijos/:id/verificar', async (req, res) => {
+app.post('/api/acertijos/:id/verificar', requiereSesion, async (req, res) => {
   const { respuesta, jugador_sala_id } = req.body;
   try {
     if (!jugador_sala_id) return res.status(400).json({ error: 'Falta el jugador.' });
     const ctx = await contextoJugador(jugador_sala_id);
-    if (!ctx) return res.status(403).json({ error: 'Jugador no válido.' });
+    if (!esMio(ctx, req)) return res.status(403).json({ error: 'Jugador no válido.' });
     if (ctx.estado !== 'EN_PROGRESO') return res.status(400).json({ error: 'La sala no está en juego.' });
 
     const [rows] = await pool.query(
@@ -401,11 +400,11 @@ app.post('/api/acertijos/:id/verificar', async (req, res) => {
 
 // Puerta de la etapa: el EQUIPO debe aportar la respuesta de cada rol presente.
 // Se responde solo si/no (nunca cuál falló) para que no se pueda adivinar rol por rol.
-app.post('/api/salas/:id/puerta', async (req, res) => {
+app.post('/api/salas/:id/puerta', requiereSesion, async (req, res) => {
   const { respuestas, jugador_sala_id } = req.body; // respuestas: { "<rol_juego_id>": "valor" }
   try {
     const ctx = await contextoJugador(jugador_sala_id);
-    if (!ctx || String(ctx.sala_id) !== String(req.params.id)) {
+    if (!esMio(ctx, req) || String(ctx.sala_id) !== String(req.params.id)) {
       return res.status(403).json({ error: 'Jugador no válido para esta sala.' });
     }
     if (ctx.estado !== 'EN_PROGRESO') return res.status(400).json({ error: 'La sala no está en juego.' });
@@ -455,8 +454,9 @@ app.post('/api/salas/:id/puerta', async (req, res) => {
 });
 
 // ---------------------------------------------------------------- inventario (se conserva)
-app.get('/api/salas/:salaId/inventario/:usuarioId', async (req, res) => {
+app.get('/api/salas/:salaId/inventario/:usuarioId', requiereSesion, async (req, res) => {
   try {
+    if (String(req.params.usuarioId) !== String(req.usuario.id)) return res.status(403).json({ error: 'Solo puedes ver tu inventario.' });
     const [rows] = await pool.query(
       `SELECT inv.* FROM inventario_jugador inv
        JOIN jugadores_sala js ON inv.jugador_sala_id = js.id
