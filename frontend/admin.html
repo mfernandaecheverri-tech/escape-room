@@ -58,7 +58,7 @@
 
   <div id="login">
     <h2>CLAVE DE ADMINISTRADOR</h2>
-    <p class="nota">Es la variable <b>ADMIN_KEY</b> que configuraste en el servidor.</p>
+    <p class="nota">Es la variable <b>ADMIN_KEY</b> configurada.</p>
     <input type="password" id="clave" placeholder="Clave" onkeydown="if(event.key==='Enter')entrar()">
     <button class="verde" onclick="entrar()">Entrar</button>
     <p id="error-login" style="color:#ff6b6b; margin-top:12px;"></p>
@@ -86,7 +86,7 @@
   let clave = sessionStorage.getItem('adminKey') || '';
   let meta = {};
   let tablaActual = null;
-  let datos = {};          // caché: { tabla: [filas] }
+  let datos = {};          
   let editandoId = null;
 
   const api = async (metodo, ruta, cuerpo) => {

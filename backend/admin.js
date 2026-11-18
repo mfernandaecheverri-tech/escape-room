@@ -1,6 +1,4 @@
 // CRUD genérico del panel de administración (/admin.html).
-// Solo se pueden tocar las tablas y columnas de esta lista blanca. Se protege con la
-// variable de entorno ADMIN_KEY (cabecera x-admin-key): sin ella, el panel queda deshabilitado.
 
 const SI_NO = [{ n: 'es_activo', t: 'bool' }];
 

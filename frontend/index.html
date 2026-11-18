@@ -6,7 +6,7 @@
   <title>Escape Room 16-Bit Multiplayer</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
   <style>
-    /* Texto general: VT323 (pixelada pero MUY legible). Títulos y botones: Press Start 2P. */
+   
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'VT323', monospace; image-rendering: pixelated; }
     h2, h3, h4, .btn-pixel, .px { font-family: 'Press Start 2P', cursive; }
     body { background: #0d0d15; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-size: 22px; }
@@ -187,8 +187,6 @@
   }
 
   // ============================================================ SONIDO (sintetizado con Web Audio)
-  // No hay archivos de audio: todo se genera en el navegador. Si pones tus propios MP3 en
-  // frontend/sonidos/ (grito.mp3, susto.mp3, ambiente.mp3) se usan en lugar de los sintetizados.
   const Sonido = (() => {
     let ctx = null, master = null, silenciado = false;
     const buffers = {};
@@ -379,8 +377,6 @@
   }
 
   // ============================================================ 2. AUTENTICACIÓN (Google + invitado)
-  // El navegador solo guarda la SESIÓN que entrega el servidor. El servidor ya no confía en
-  // ningún id de usuario que envíe el navegador: siempre usa el de la sesión.
   let sesionToken = null;
   const CLAVE_SESION = 'er_sesion';
 

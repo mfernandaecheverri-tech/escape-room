@@ -5,8 +5,6 @@ const pool = require('./db');
 const app = express();
 app.use(express.json());
 
-// CORS: el frontend vive en OTRO dominio. En ALLOWED_ORIGINS pones la URL del
-// frontend (sin "/" al final); varias separadas por coma. Sin definir, acepta todo.
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '*').split(',').map(o => o.trim());
 app.use(cors({ origin: allowedOrigins.includes('*') ? true : allowedOrigins }));
 
@@ -14,7 +12,6 @@ app.get('/', (req, res) => {
   res.json({ ok: true, servicio: 'API Escape Room' });
 });
 
-// Autenticación (Google + invitado + sesiones). Ver auth.js
 const { requiereSesion } = require('./auth')(app, pool);
 
 // ---------------------------------------------------------------- utilidades
@@ -453,7 +450,7 @@ app.post('/api/salas/:id/puerta', requiereSesion, async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------- inventario (se conserva)
+// ---------------------------------------------------------------- inventario
 app.get('/api/salas/:salaId/inventario/:usuarioId', requiereSesion, async (req, res) => {
   try {
     if (String(req.params.usuarioId) !== String(req.usuario.id)) return res.status(403).json({ error: 'Solo puedes ver tu inventario.' });
@@ -469,7 +466,7 @@ app.get('/api/salas/:salaId/inventario/:usuarioId', requiereSesion, async (req, 
   }
 });
 
-// Panel CRUD (protegido con ADMIN_KEY)
+// Panel CRUD
 require('./admin')(app, pool);
 
 const PORT = process.env.PORT || 3000;

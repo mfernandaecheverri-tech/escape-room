@@ -1,19 +1,3 @@
-// Autenticación: "Continuar con Google" + modo invitado + sesiones firmadas.
-//
-// Cómo funciona:
-//  1. El navegador obtiene de Google una credencial (ID token, un JWT firmado por Google).
-//  2. Aquí la VERIFICAMOS (firma con las llaves públicas de Google, audiencia = tu ID de cliente,
-//     emisor y vencimiento) siguiendo los criterios de la documentación de Google.
-//  3. Buscamos o creamos al usuario (por el identificador estable "sub" de Google) y le damos
-//     una sesión propia (token firmado con HMAC). El resto de la API usa ESA sesión: ya no
-//     se confía en ningún "usuario_id" enviado por el navegador.
-//
-// Variables de entorno:
-//   GOOGLE_CLIENT_ID     ID de cliente OAuth (termina en .apps.googleusercontent.com)
-//   SESSION_SECRET       texto largo y secreto para firmar las sesiones
-//   PERMITIR_INVITADOS   "false" para apagar el acceso como invitado (por defecto está activo)
-//   GOOGLE_JWKS_URL      (solo pruebas) URL alternativa de las llaves públicas
-
 const crypto = require('crypto');
 
 const DURACION_SESION_S = 12 * 3600;
@@ -23,7 +7,7 @@ if (!SECRETO) {
   console.warn('⚠️  SESSION_SECRET no está definido: se usa una clave temporal. Las sesiones se perderán cada vez que el servidor se reinicie. Defínela en Render.');
 }
 
-// ------------------------------------------------------------ sesiones propias (HMAC-SHA256)
+// ------------------------------------------------------------ sesiones propias
 function firmarSesion(uid) {
   const cuerpo = Buffer.from(JSON.stringify({ uid, exp: Math.floor(Date.now() / 1000) + DURACION_SESION_S })).toString('base64url');
   const firma = crypto.createHmac('sha256', SECRETO).update(cuerpo).digest('base64url');
